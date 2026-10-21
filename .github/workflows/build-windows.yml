@@ -32,7 +32,7 @@ jobs:
       - name: Compilar aplicación
         shell: pwsh
         run: |
-          python -m PyInstaller --noconfirm --clean --onedir --name MiniSumosRC --add-data "index.html;." --add-data "templates;templates" --add-data "Imagenes;Imagenes" --add-data "Audios;Audios" --add-data "BasesDeDatos;BasesDeDatos" app.py
+          python -m PyInstaller --noconfirm --clean --onedir --name MiniSumosRC --add-data "permitir_hotspot_exe.ps1;." --add-data "index.html;." --add-data "templates;templates" --add-data "Imagenes;Imagenes" --add-data "Audios;Audios" --add-data "BasesDeDatos;BasesDeDatos" app.py
 
       - name: Preparar paquete portátil
         shell: pwsh
