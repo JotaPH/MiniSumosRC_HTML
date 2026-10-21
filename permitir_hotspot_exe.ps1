@@ -23,7 +23,20 @@ if (-not $hotspot) {
     exit 3
 }
 
+# Detecta bloqueos que afectan a este EXE y al puerto del dashboard.
+$blockingRules = @(Get-NetFirewallRule -PolicyStore ActiveStore -Direction Inbound -Enabled True -Action Block | ForEach-Object {
+    $rule = $_
+    $programFilter = $rule | Get-NetFirewallApplicationFilter
+    if ($programFilter.Program -ieq $exePath) {
+        $portFilter = $rule | Get-NetFirewallPortFilter
+        $ports = @($portFilter.LocalPort)
+        if (($portFilter.Protocol -eq "TCP" -or $portFilter.Protocol -eq "Any" -or $portFilter.Protocol -eq 256) -and ($ports -contains "Any" -or $ports -contains "8000" -or $ports -contains 8000)) { $rule }
+    }
+})
+
 if ($CheckOnly) {
+    # Un permiso existente no basta si sigue activa una regla de bloqueo del mismo EXE.
+    if ($blockingRules.Count -gt 0) { exit 1 }
     $existingRules = Get-NetFirewallRule -DisplayName $ruleName -ErrorAction SilentlyContinue
     foreach ($rule in $existingRules) {
         $appFilter = $rule | Get-NetFirewallApplicationFilter
@@ -34,6 +47,20 @@ if ($CheckOnly) {
         if ($rule.Enabled -eq "True" -and $rule.Action -eq "Allow" -and $appFilter.Program -ieq $exePath -and ($localAddresses -contains $hotspot.IPAddress -or $localAddresses -contains "Any") -and ($interfaces -contains $hotspot.InterfaceAlias -or $interfaces -contains "Any")) { exit 0 }
     }
     exit 1
+}
+
+$principal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
+if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) { Write-Error "Ejecuta este script como administrador."; exit 4 }
+
+# Deshabilita solo bloqueos de entrada que apunten a este EXE y que afecten TCP 8000.
+# Después se crea una regla Allow mucho más limitada a la interfaz/subred del hotspot.
+if ($blockingRules.Count -gt 0) {
+    Write-Host "Se encontraron bloqueos de firewall para este ejecutable. Se deshabilitarán solo esas reglas." -ForegroundColor Yellow
+    $blockingRules | Format-Table DisplayName, Profile, Action -AutoSize
+    foreach ($blockingRule in $blockingRules) {
+        Disable-NetFirewallRule -Name $blockingRule.Name
+    }
+    Write-Host "Bloqueos específicos deshabilitados." -ForegroundColor Green
 }
 
 $principal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
