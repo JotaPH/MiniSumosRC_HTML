@@ -4,7 +4,10 @@ from threading import Lock, Thread
 import json
 import os
 import sqlite3
+import subprocess
+import sys
 import time
+import webbrowser
 from contextlib import closing
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -413,9 +416,65 @@ def ui_complete():
         state["ui_completed"] = str(payload.get("action", ""))[:40]
         return jsonify(snapshot())
 
+def configure_hotspot_firewall():
+    """Configura el acceso del hotspot solo en el paquete Windows compilado."""
+    if not getattr(sys, "frozen", False):
+        return
+
+    helper = Path(getattr(sys, "_MEIPASS", BASE_DIR)) / "permitir_hotspot_exe.ps1"
+    if not helper.is_file():
+        print("AVISO: no se encontró el auxiliar de firewall; el dashboard seguirá disponible en este PC.")
+        return
+
+    exe_path = Path(sys.executable).resolve()
+    base_args = [
+        "powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass",
+        "-File", str(helper), "-ExePath", str(exe_path)
+    ]
+
+    try:
+        check = subprocess.run(
+            base_args[:5] + [str(helper), "-ExePath", str(exe_path), "-CheckOnly"],
+            capture_output=True, text=True, timeout=30
+        )
+        if check.returncode == 0:
+            return
+
+        print("Se necesita permiso de administrador para configurar el acceso del hotspot.")
+        print("Acepta la solicitud de Windows si deseas conectar celulares a este PC.")
+        ps_command = (
+            "$p = Start-Process -FilePath 'powershell.exe' -Verb RunAs -Wait -PassThru "
+            "-ArgumentList '-NoProfile -ExecutionPolicy Bypass -File "
+            f'""{helper}"" -ExePath ""{exe_path}""'
+            "'; exit $p.ExitCode"
+        )
+        result = subprocess.run(
+            ["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", ps_command],
+            capture_output=True, text=True, timeout=180
+        )
+        if result.returncode == 0:
+            print("Acceso del hotspot configurado correctamente.")
+        else:
+            print("AVISO: no se pudo configurar el firewall. El dashboard local seguirá iniciando.")
+            if result.stderr.strip():
+                print(result.stderr.strip())
+            if result.stdout.strip():
+                print(result.stdout.strip())
+    except (OSError, subprocess.SubprocessError) as error:
+        print(f"AVISO: no se pudo comprobar/configurar el firewall: {error}")
+        print("El dashboard local seguirá iniciando.")
+
+
+def open_local_dashboard():
+    time.sleep(1.5)
+    webbrowser.open("http://127.0.0.1:8000")
+
+
 if __name__ == "__main__":
-    # Escucha en las interfaces de red del PC para permitir acceso desde el hotspot.
-    # El script permitir_hotspot.ps1 abre el puerto 8000 únicamente para la subred del hotspot.
+    # El ejecutable portátil prepara el firewall del hotspot con UAC solo cuando hace falta.
+    configure_hotspot_firewall()
     print("MiniSumos RC local:     http://127.0.0.1:8000")
-    print("MiniSumos RC hotspot:   http://192.168.137.1:8000")
+    print("MiniSumos RC hotspot:   se muestra la IP detectada por el auxiliar de firewall.")
+    if getattr(sys, "frozen", False):
+        Thread(target=open_local_dashboard, daemon=True).start()
     app.run(host="0.0.0.0", port=8000, debug=False, threaded=True)
