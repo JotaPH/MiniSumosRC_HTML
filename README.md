@@ -1,48 +1,59 @@
 # MiniSumosRC_HTML
 
-Prototipo de nuevas vistas **integradas sobre el HTML original del dashboard MiniSumos RC**. No es un dashboard independiente: conserva Home, el marcador, las imágenes de robots, el cronómetro, las pantallas de ganador/próxima batalla y las páginas existentes de Ataques 1 y Ataques 2 como base visual.
+Prototipo web del dashboard MiniSumos RC basado en el HTML original. Conserva Home, el marcador, el cronómetro, las pantallas de ganador/próxima batalla, las páginas de Ataques 1 y Ataques 2, las imágenes y los audios.
 
-## Ejecutar el proyecto
+## Ejecutar en modo desarrollo
 
-Este repositorio incluye ahora un servidor Flask para servir el dashboard, las páginas de ataques y los recursos de `Imagenes/` y `Audios/`.
+Requiere Python 3.10 o superior.
 
-1. Instala Python 3.10 o superior.
-2. En una terminal, dentro de la carpeta del repositorio, ejecuta `python -m pip install -r requirements.txt`.
-3. Inicia el servidor con `python app.py`.
-4. Abre `http://127.0.0.1:8000`.
+1. Instala las dependencias:
+   ```powershell
+   python -m pip install -r requirements.txt
+   ```
+2. Inicia el servidor:
+   ```powershell
+   python app.py
+   ```
+3. Abre http://127.0.0.1:8000.
 
-Las rutas principales son `/`, `/battles`, `/attacks/1` y `/attacks/2`. No abras `index.html` directamente con doble clic: las rutas `/api/...`, las imágenes y los audios necesitan el servidor activo.
+No abras `index.html` directamente con doble clic: las rutas `/api/...`, las imágenes y los audios necesitan el servidor activo.
 
-## Archivo principal
+Rutas principales: `/`, `/battles`, `/attacks/1`, `/attacks/2` y `/api/database-status`.
 
-- [index.html](./index.html): base del dashboard con las opciones nuevas añadidas al menú de la tuerca ⚙️:
-  - **ATAQUES 1** y **ATAQUES 2**: conservan los contadores y ahora incluyen navegación a las demás vistas.
-  - **BATALLAS · JUEZ**: nueva vista basada en `batallas.py`, con inicio y cuenta regresiva, pausa, continuar, finalizar con selección de ganador, próxima batalla, marcador, tiempo y controles de pantalla completa y menú.
-  - **PARTICIPANTES**: formulario web con piloto, robot, peso máximo de 500 g y cinco requisitos reglamentarios; permite agregar, editar y eliminar participantes.
-  - **GANADORES / PERDEDORES**: muestra ambas tablas, serie actual al mejor de tres, historial y miniclasificación de demostración.
+## Compilar el ejecutable para Windows
 
-## Qué es funcional en este preview
+El repositorio incluye el flujo de GitHub Actions **Build MiniSumos RC for Windows**, que compila un paquete portátil de 64 bits. En el PC de destino no hace falta instalar Python.
 
-Las dos nuevas pantallas tienen interacciones locales para revisar el diseño y el flujo: validación de participantes, confirmación antes de reiniciar las llaves, registro de resultados de ejemplo, movimiento entre tablas según las derrotas y una gran final con serie de reinicio.
+1. Abre la pestaña **Actions** del repositorio.
+2. Selecciona **Build MiniSumos RC for Windows** y pulsa **Run workflow**.
+3. Cuando finalice correctamente, descarga el artefacto **MiniSumosRC-Windows-x64**.
+4. Extrae el ZIP en una carpeta con permisos de escritura, por ejemplo Documentos o el Escritorio.
+5. Activa el hotspot de Windows y ejecuta `iniciar_ejecutable.bat`.
+6. Acepta el permiso de administrador cuando Windows lo solicite para configurar el acceso del firewall.
 
-## Alcance y limitaciones
+El lanzador abre el dashboard en el PC mediante `http://127.0.0.1:8000` y muestra la dirección que deben abrir los celulares conectados al hotspot. Mantén abierta la ventana del servidor mientras se usa la aplicación.
 
-- Los resultados de las nuevas pantallas son **demostrativos** y se mantienen solo en memoria mientras la página está abierta.
-- La nueva gestión aún no está conectada con la base SQLite, el módulo de torneos Python ni el ESP32.
-- El servidor incluido permite probar la interfaz, rutas, recursos y contadores en el navegador. La nueva vista de Batallas controla un estado web de demostración, pero todavía no está conectada al ESP32 ni a la base SQLite de la aplicación principal; el selector de puerto es visual por ahora.
-- La lógica de emparejamientos, especialmente con números impares, debe validarse con casos de 2, 3, 5, 6, 7 y 8 robots antes de usarla en competencia.
+El script de firewall crea una regla de entrada para `MiniSumosRC.exe`, TCP 8000, la IP detectada del PC y la interfaz del hotspot. No desactiva el firewall completo ni modifica los bloqueos generales de Python. Si detecta un bloqueo explícito para el propio ejecutable, informa del conflicto en vez de anularlo automáticamente.
 
-## Siguiente paso
+También puedes crear una etiqueta Git que empiece por `v` (por ejemplo, `v1.0.0`) para ejecutar la compilación y adjuntar el ZIP a un GitHub Release.
 
-Después de revisar y corregir el diseño y las reglas, conectar estas pantallas al backend Python existente, reutilizando SQLite para los participantes/resultados y el mecanismo de eventos del dashboard para reflejar cambios en tiempo real. La comunicación serial con el ESP32 debe continuar centralizada en Python.
+## Estructura y recursos
 
-## Base de datos SQLite
+- `app.py`: servidor Flask y API.
+- `index.html`: dashboard principal.
+- `templates/`: vistas de batallas y ataques.
+- `Imagenes/` y `Audios/`: recursos visuales y de sonido.
+- `BasesDeDatos/competencia.db`: base SQLite propia de este proyecto.
+- `iniciar_minisumos.bat` y `permitir_hotspot.ps1`: herramientas del modo de desarrollo con Python.
+- `iniciar_ejecutable.bat` y `permitir_hotspot_exe.ps1`: lanzamiento y configuración de firewall del paquete compilado.
+- `.github/workflows/build-windows.yml`: compilación automatizada para Windows x64.
 
-La interfaz web consulta y modifica los participantes mediante la API Flask y usa el esquema existente de `BasesDeDatos/competencia.db`.
+## Base de datos
 
-- Si las carpetas `MiniSumosRC` y `MiniSumosRC_HTML` están al mismo nivel, la web intenta usar primero `MiniSumosRC/BasesDeDatos/competencia.db`.
-- Si no encuentra esa ruta, usa la copia incluida en `MiniSumosRC_HTML/BasesDeDatos/competencia.db`.
-- Para definir la ruta exacta, configura la variable de entorno `MINISUMOS_DB_PATH` antes de iniciar `app.py`.
-- `GET /api/database-status` informa si la conexión está disponible; `GET /api/participants` consulta los participantes y `GET /api/matches` consulta los enfrentamientos guardados.
+La aplicación HTML utiliza exclusivamente `MiniSumosRC_HTML/BasesDeDatos/competencia.db`. No busca ni usa la base de datos del proyecto de escritorio `MiniSumosRC`. El endpoint `GET /api/database-status` permite comprobar qué archivo SQLite está utilizando el servidor.
 
-Por seguridad, el formulario web bloquea cambios en participantes si encuentra enfrentamientos iniciados o completados. La interfaz de doble eliminación y los controles de batalla todavía requieren conectar sus acciones de resultados a SQLite; no deben considerarse persistentes hasta completar esa integración.
+Para conservar los datos del paquete portátil, mantén la carpeta extraída y haz una copia de seguridad antes de reemplazarla por una versión nueva. Evita ejecutar el paquete desde el ZIP o desde una carpeta protegida como `Archivos de programa`, ya que la base SQLite necesita permisos de escritura.
+
+## Alcance funcional
+
+La interfaz incluye el dashboard, páginas de ataques, marcador y vistas de gestión. Algunas interacciones de las pantallas nuevas siguen siendo demostrativas y no todas las acciones de torneo están integradas con la base SQLite o con el ESP32. Antes de usarlo en una competencia oficial, valida las reglas de emparejamiento, el registro de resultados y el flujo completo con pruebas reales.
