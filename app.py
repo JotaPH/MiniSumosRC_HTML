@@ -551,19 +551,61 @@ def run_startup_helper():
         print(f"AVISO: no se pudo ejecutar iniciar_ejecutable.bat: {error}")
 
 
+def windows_firewall_allows_exe():
+    """Comprueba si Windows ya tiene una regla Allow de entrada para este EXE."""
+    if os.name != "nt" or not getattr(sys, "frozen", False):
+        return True
+
+    exe_path = str(Path(sys.executable).resolve()).replace("'", "''")
+    command = (
+        f"$exe = '{exe_path}'; "
+        "$rules = Get-NetFirewallRule -PolicyStore ActiveStore -Direction Inbound "
+        "-Enabled True -Action Allow -ErrorAction SilentlyContinue; "
+        "foreach ($rule in $rules) { "
+        "$app = $rule | Get-NetFirewallApplicationFilter -ErrorAction SilentlyContinue; "
+        "if ($app.Program -and $app.Program -ieq $exe) { exit 0 } "
+        "}; exit 1"
+    )
+    try:
+        check = subprocess.run(
+            ["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass",
+             "-Command", command],
+            capture_output=True, timeout=8
+        )
+        return check.returncode == 0
+    except (OSError, subprocess.SubprocessError):
+        return False
+
+
 def open_local_dashboard_when_ready():
-    """Abre el navegador únicamente después de comprobar que Flask responde."""
+    """Espera a Flask y, en Windows, al permiso de firewall antes de abrir Chrome."""
     url = "http://127.0.0.1:8000/api/state"
     deadline = time.monotonic() + 60
     while time.monotonic() < deadline:
         try:
             with urllib.request.urlopen(url, timeout=1.5) as response:
                 if response.status == 200:
-                    webbrowser.open("http://127.0.0.1:8000")
-                    return
+                    break
         except (OSError, urllib.error.URLError):
             time.sleep(0.4)
-    print("El servidor no respondió en 60 segundos; abre manualmente http://127.0.0.1:8000")
+    else:
+        print("El servidor no respondió en 60 segundos; abre manualmente http://127.0.0.1:8000")
+        return
+
+    # Windows no expone una señal directa al pulsar «Permitir acceso».
+    # La regla Allow creada por ese diálogo sirve como confirmación indirecta.
+    if os.name == "nt" and getattr(sys, "frozen", False):
+        print("Esperando a que Windows registre el permiso de acceso a redes...")
+        firewall_deadline = time.monotonic() + 300
+        while time.monotonic() < firewall_deadline:
+            if windows_firewall_allows_exe():
+                webbrowser.open("http://127.0.0.1:8000")
+                return
+            time.sleep(1.0)
+        print("No se detectó el permiso de firewall. Cuando lo autorices, abre http://127.0.0.1:8000 manualmente.")
+        return
+
+    webbrowser.open("http://127.0.0.1:8000")
 
 
 if __name__ == "__main__":
