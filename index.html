@@ -208,6 +208,27 @@ body.view-subpage{overflow:auto!important}
   #managementViews #participantsView .mgmt-table tr td[colspan] { display:block !important; grid-column:1/-1 !important; width:100% !important; }
 }
 
+
+/* Alineación de la tabla de participantes */
+#managementViews #participantsView table.mgmt-table th {
+  text-align: center !important;
+}
+#managementViews #participantsView table.mgmt-table td {
+  text-align: center !important;
+  vertical-align: middle !important;
+}
+#managementViews #participantsView table.mgmt-table th:first-child,
+#managementViews #participantsView table.mgmt-table td:first-child {
+  text-align: left !important;
+}
+#managementViews #participantsView table.mgmt-table td:first-child strong,
+#managementViews #participantsView table.mgmt-table td:first-child .mgmt-muted {
+  text-align: left !important;
+}
+#managementViews #participantsView table.mgmt-table td:last-child .mgmt-row-actions {
+  justify-content: center !important;
+}
+
 </style>
 </head>
 <body>
