@@ -46,7 +46,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: MiniSumosRC-Windows-x64
-          path: dist/MiniSumosRC-Windows-x64.zip
+          # Subir directamente la carpeta; Actions ya crea el ZIP descargable.
+          # Evita que el usuario tenga que extraer un ZIP dentro de otro ZIP.
+          path: dist/MiniSumosRC/
           if-no-files-found: error
           retention-days: 30
 
