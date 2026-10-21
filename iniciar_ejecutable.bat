@@ -14,6 +14,8 @@ echo.
 if not exist "%EXE%" goto error_exe
 if not exist "%FIREWALL_SCRIPT%" goto error_script
 
+if /i "%~1"=="--config-only" goto config_only
+
 echo Comprobando acceso del firewall...
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%FIREWALL_SCRIPT%" -CheckOnly >nul 2>&1
 if errorlevel 1 goto configurar
@@ -26,6 +28,13 @@ echo (o cuando cambie la ubicacion de esta carpeta o la red).
 echo.
 powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "$p = Start-Process -FilePath 'powershell.exe' -Verb RunAs -Wait -PassThru -ArgumentList '-NoProfile -ExecutionPolicy Bypass -File ""%~dp0permitir_hotspot_exe.ps1""'; exit $p.ExitCode"
 if errorlevel 1 goto error_firewall
+
+:config_only
+echo Configurando acceso del hotspot para MiniSumos RC...
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%FIREWALL_SCRIPT%" -ExePath "%EXE%"
+if errorlevel 1 exit /b 1
+echo Configuracion del hotspot finalizada.
+exit /b 0
 
 :iniciar
 echo Iniciando MiniSumos RC...
