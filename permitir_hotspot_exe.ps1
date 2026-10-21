@@ -1,8 +1,8 @@
-param([switch]$CheckOnly)
+param([switch]$CheckOnly, [string]$ExePath)
 
 $ErrorActionPreference = "Stop"
 $ruleName = "MiniSumos RC - Ejecutable Hotspot TCP 8000"
-$exePath = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot "MiniSumosRC.exe"))
+$exePath = if ($ExePath) { [System.IO.Path]::GetFullPath($ExePath) } else { [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot "MiniSumosRC.exe")) }
 
 if (-not (Test-Path -LiteralPath $exePath -PathType Leaf)) {
     Write-Error "No se encontró MiniSumosRC.exe junto a este script: $exePath"
@@ -39,7 +39,8 @@ if ($CheckOnly) {
 $principal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
 if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) { Write-Error "Ejecuta este script como administrador."; exit 4 }
 
-# No anula bloqueos explícitos del usuario; los informa para no debilitar otras decisiones de seguridad.
+# Deshabilita solo bloqueos de entrada que apunten a este EXE y que afecten TCP 8000.
+# Después se crea una regla Allow mucho más limitada a la interfaz/subred del hotspot.
 $blockingRules = @(Get-NetFirewallRule -PolicyStore ActiveStore -Direction Inbound -Enabled True -Action Block | ForEach-Object {
     $rule = $_
     $programFilter = $rule | Get-NetFirewallApplicationFilter
@@ -50,10 +51,12 @@ $blockingRules = @(Get-NetFirewallRule -PolicyStore ActiveStore -Direction Inbou
     }
 })
 if ($blockingRules.Count -gt 0) {
-    Write-Host "Hay una regla de BLOQUEO explícita para este ejecutable." -ForegroundColor Red
+    Write-Host "Se encontraron bloqueos de firewall para este ejecutable. Se deshabilitarán solo esas reglas." -ForegroundColor Yellow
     $blockingRules | Format-Table DisplayName, Profile, Action -AutoSize
-    Write-Host "No la desactivé automáticamente. Revisa esa regla antes de continuar."
-    exit 5
+    foreach ($blockingRule in $blockingRules) {
+        Disable-NetFirewallRule -Name $blockingRule.Name
+    }
+    Write-Host "Bloqueos específicos deshabilitados." -ForegroundColor Green
 }
 
 Get-NetFirewallRule -DisplayName $ruleName -ErrorAction SilentlyContinue | Remove-NetFirewallRule
