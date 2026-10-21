@@ -9,15 +9,15 @@ INSTALACIÓN Y USO
 1. Descarga MiniSumosRC-Windows-x64.zip desde GitHub Actions (artefacto) o desde Releases.
 2. Extrae la carpeta completa MiniSumosRC en una ubicación donde tu usuario pueda escribir, por ejemplo Documentos o el Escritorio. No la ejecutes directamente desde el ZIP ni la instales dentro de Archivos de programa.
 3. Activa el hotspot de Windows si quieres conectar celulares.
-4. Haz doble clic en iniciar_ejecutable.bat.
-5. En el primer inicio, acepta la solicitud de administrador para crear una regla de firewall limitada al ejecutable MiniSumosRC.exe, TCP 8000 y la interfaz del hotspot.
-6. El dashboard se abrirá en el PC en http://127.0.0.1:8000. La ventana de inicio muestra la dirección que deben abrir los celulares conectados al hotspot.
+4. Haz doble clic directamente en MiniSumosRC.exe.
+5. Si hace falta configurar el acceso del hotspot, acepta la solicitud de administrador de Windows. El programa deshabilita únicamente reglas de bloqueo que apunten a ese mismo ejecutable y afecten TCP 8000; después crea un permiso limitado a la interfaz y subred del hotspot.
+6. El dashboard se abrirá en el navegador del PC en http://127.0.0.1:8000. Para los celulares, usa la IP del hotspot del PC seguida de :8000. El archivo iniciar_ejecutable.bat queda disponible como alternativa.
 
 IMPORTANTE
 - Mantén abierta la ventana de MiniSumos RC mientras uses el dashboard.
 - Si mueves la carpeta a otra ubicación o cambia la interfaz del hotspot, el lanzador comprobará la regla y volverá a solicitar permiso cuando sea necesario.
 - El firewall permanece activado. El instalador no desactiva reglas generales de Python ni el firewall completo.
-- Si Windows ya tiene una regla de bloqueo explícita para el ejecutable MiniSumosRC.exe, el script la informa y no la deshabilita automáticamente.
+- El programa no desactiva el firewall completo ni cambia reglas de otros ejecutables. Solo deshabilita reglas de bloqueo de entrada asociadas a la ruta exacta de MiniSumosRC.exe que afecten TCP 8000.
 - La base de datos incluida es BasesDeDatos/competencia.db del proyecto MiniSumosRC_HTML. No se consulta la base de datos del proyecto MiniSumosRC de escritorio.
 - Para conservar los datos, mantén la carpeta extraída y haz una copia de seguridad de ella antes de reemplazarla por una versión nueva.
 - El paquete está pensado para Windows x64. No es un instalador MSI; es una carpeta portátil comprimida.
