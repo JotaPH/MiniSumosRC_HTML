@@ -4,7 +4,7 @@ Primer prototipo HTML para la nueva interfaz web de MiniSumos RC.
 
 ## Vista previa
 
-Abre [index.html](./index.html) desde GitHub o descarga/clona el repositorio y abre el archivo en el navegador.
+Descarga el repositorio y abre `index.html` en el navegador. GitHub muestra el código fuente del archivo, no ejecuta la vista previa interactiva directamente en la página del repositorio.
 
 ## Qué incluye
 
