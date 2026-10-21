@@ -417,56 +417,82 @@ def ui_complete():
         return jsonify(snapshot())
 
 def configure_hotspot_firewall():
-    """Configura el acceso del hotspot solo en el paquete Windows compilado."""
+    """Configura el acceso del hotspot desde el EXE portátil, elevando solo el auxiliar."""
     if not getattr(sys, "frozen", False):
         return
 
     helper = Path(getattr(sys, "_MEIPASS", BASE_DIR)) / "permitir_hotspot_exe.ps1"
     if not helper.is_file():
-        print("AVISO: no se encontró el auxiliar de firewall; el dashboard seguirá disponible en este PC.")
+        print("AVISO: no se encontró el auxiliar de firewall; el dashboard local seguirá disponible.")
         return
 
     exe_path = Path(sys.executable).resolve()
-    base_args = [
-        "powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass",
+    helper_args = [
+        "-NoProfile", "-ExecutionPolicy", "Bypass",
         "-File", str(helper), "-ExePath", str(exe_path)
     ]
 
+    def run_helper(check_only=False):
+        args = ["powershell.exe", *helper_args]
+        if check_only:
+            args.append("-CheckOnly")
+        return subprocess.run(args, capture_output=True, text=True, timeout=45)
+
     try:
-        check = subprocess.run(
-            base_args[:5] + [str(helper), "-ExePath", str(exe_path), "-CheckOnly"],
-            capture_output=True, text=True, timeout=30
-        )
+        # Si el permiso ya existe y no hay reglas de bloqueo, no se pide UAC.
+        check = run_helper(check_only=True)
         if check.returncode == 0:
+            print("Acceso del hotspot ya configurado.")
             return
 
-        print("Se necesita permiso de administrador para configurar el acceso del hotspot.")
-        print("Acepta la solicitud de Windows si deseas conectar celulares a este PC.")
-        helper_ps = str(helper).replace("'", "''")
-        exe_ps = str(exe_path).replace("'", "''")
-        ps_command = (
-            f"$script = '{helper_ps}'; "
-            f"$exe = '{exe_ps}'; "
-            "$arg = '-NoProfile -ExecutionPolicy Bypass -File \"' + $script + '\" -ExePath \"' + $exe + '\"'; "
-            "$p = Start-Process -FilePath 'powershell.exe' -Verb RunAs -Wait -PassThru -ArgumentList $arg; "
-            "exit $p.ExitCode"
-        )
-        result = subprocess.run(
-            ["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", ps_command],
-            capture_output=True, text=True, timeout=180
-        )
-        if result.returncode == 0:
+        print("Se necesita configurar el acceso del hotspot.")
+        print("Acepta la solicitud de Windows para permitir conexiones desde los celulares.")
+
+        # Si el EXE ya se abrió como administrador, ejecuta el auxiliar directamente.
+        # De lo contrario, solicita elevación únicamente para configurar el firewall.
+        is_admin = False
+        try:
+            identity_check = subprocess.run(
+                ["powershell.exe", "-NoProfile", "-Command",
+                 "$p=New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent()); "
+                 "if($p.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)){exit 0}else{exit 1}"],
+                capture_output=True, timeout=15
+            )
+            is_admin = identity_check.returncode == 0
+        except (OSError, subprocess.SubprocessError):
+            pass
+
+        if is_admin:
+            result = run_helper()
+        else:
+            # Pasar los argumentos como una sola cadena con rutas entre comillas.
+            helper_ps = str(helper).replace("'", "''")
+            exe_ps = str(exe_path).replace("'", "''")
+            ps_command = (
+                f"$script = '{helper_ps}'; "
+                f"$exe = '{exe_ps}'; "
+                "$arg = '-NoProfile -ExecutionPolicy Bypass -File \"' + $script + '\" -ExePath \"' + $exe + '\"'; "
+                "$p = Start-Process -FilePath 'powershell.exe' -Verb RunAs -Wait -PassThru -ArgumentList $arg; "
+                "exit $p.ExitCode"
+            )
+            result = subprocess.run(
+                ["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", ps_command],
+                capture_output=True, text=True, timeout=180
+            )
+
+        # Verificar de nuevo desde el proceso normal: evita asumir que UAC funcionó.
+        verify = run_helper(check_only=True)
+        if verify.returncode == 0:
             print("Acceso del hotspot configurado correctamente.")
         else:
-            print("AVISO: no se pudo configurar el firewall. El dashboard local seguirá iniciando.")
-            if result.stderr.strip():
-                print(result.stderr.strip())
-            if result.stdout.strip():
-                print(result.stdout.strip())
+            print("AVISO: Windows no confirmó la configuración del firewall.")
+            print("El dashboard local seguirá iniciando, pero el celular podría no conectarse.")
+            for output in (result.stdout, result.stderr, verify.stdout, verify.stderr):
+                if output and output.strip():
+                    print(output.strip())
     except (OSError, subprocess.SubprocessError) as error:
         print(f"AVISO: no se pudo comprobar/configurar el firewall: {error}")
         print("El dashboard local seguirá iniciando.")
-
 
 def open_local_dashboard():
     time.sleep(1.5)
