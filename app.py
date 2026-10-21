@@ -18,19 +18,14 @@ DB_PATH = Path(_DB_ENV).expanduser().resolve() if _DB_ENV else (
 )
 
 def ensure_participants_schema(connection):
-    connection.execute("""
-        CREATE TABLE IF NOT EXISTS participantes (
-            id INTEGER PRIMARY KEY,
-            nombre TEXT NOT NULL,
-            robot TEXT NOT NULL,
-            peso REAL DEFAULT 0,
-            cumple_dimensiones INTEGER DEFAULT 1,
-            tipo_rc INTEGER DEFAULT 1,
-            interruptor_visible INTEGER DEFAULT 1,
-            sin_elementos_fijacion INTEGER DEFAULT 1,
-            sensores_tapados INTEGER DEFAULT 1
+    exists = connection.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='participantes'"
+    ).fetchone()
+    if not exists:
+        raise sqlite3.OperationalError(
+            f"La base de datos {DB_PATH} no contiene la tabla participantes. "
+            "Verifica MINISUMOS_DB_PATH; no se creó una tabla nueva para evitar usar otra BD."
         )
-    """)
     columns = {row["name"] for row in connection.execute("PRAGMA table_info(participantes)")}
     migrations = {
         "peso": "REAL DEFAULT 0",
