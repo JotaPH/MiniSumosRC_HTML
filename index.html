@@ -364,6 +364,43 @@ body.view-subpage{overflow:auto!important}
   #managementViews #participantsView .mgmt-table td:nth-child(5){width:150px!important}
   #managementViews #participantsView .mgmt-table td:nth-child(2){grid-column:auto!important}
 }
+
+
+/* Ajuste solicitado: conservar las proporciones originales y reservar solo el ancho del ID */
+#managementViews #participantsView .mgmt-list-head h3{
+  font-size:calc(14px + 2pt)!important;
+}
+#managementViews #participantsView #mgmtOpenForm{
+  font-size:calc(12px + 2pt)!important;
+}
+#managementViews #participantsView .mgmt-table-wrap{
+  width:100%!important;max-width:none!important;overflow-x:auto!important;
+}
+#managementViews #participantsView table.mgmt-table{
+  width:100%!important;min-width:0!important;table-layout:auto!important;
+}
+#managementViews #participantsView .mgmt-table th:first-child,
+#managementViews #participantsView .mgmt-table td:first-child{
+  width:38px!important;min-width:38px!important;max-width:38px!important;
+  padding-left:3px!important;padding-right:3px!important;text-align:center!important;
+  white-space:nowrap;
+}
+/* El resto vuelve al reparto natural que tenía antes de introducir la columna ID */
+#managementViews #participantsView .mgmt-table th:nth-child(n+2),
+#managementViews #participantsView .mgmt-table td:nth-child(n+2){
+  width:auto!important;
+}
+#managementViews #participantsView .mgmt-table th:nth-child(2){text-align:center!important}
+#managementViews #participantsView .mgmt-table td:nth-child(2){text-align:left!important}
+@media(max-width:650px){
+  #managementViews #participantsView .mgmt-list-head h3{font-size:calc(12px + 2pt)!important}
+  #managementViews #participantsView #mgmtOpenForm{font-size:calc(12px + 2pt)!important}
+  #managementViews #participantsView table.mgmt-table{min-width:0!important}
+  #managementViews #participantsView .mgmt-table th:first-child,
+  #managementViews #participantsView .mgmt-table td:first-child{
+    width:34px!important;min-width:34px!important;max-width:34px!important;
+  }
+}
 </style>
 </head>
 <body>
