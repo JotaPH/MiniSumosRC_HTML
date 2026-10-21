@@ -48,6 +48,10 @@ def home():
     # Conserva como inicio el HTML que incluye los paneles nuevos de gestión.
     return send_file(BASE_DIR / "index.html")
 
+@app.get("/battles")
+def battles_page():
+    return render_template("batallas.html")
+
 @app.get("/classic-dashboard")
 def classic_dashboard():
     return render_template("index.html")
@@ -147,6 +151,16 @@ def pause_battle():
         stop_clock()
         state["phase"] = "paused"
         state["status"] = "BATALLA PAUSADA"
+        return jsonify(snapshot())
+
+@app.post("/api/continue")
+def continue_battle():
+    with lock:
+        if state["phase"] != "paused":
+            return jsonify({"error": "Solo se puede continuar una batalla pausada"}), 409
+        state["started_at"] = time.time()
+        state["phase"] = "running"
+        state["status"] = "BATALLA EN CURSO"
         return jsonify(snapshot())
 
 @app.post("/api/finish")
