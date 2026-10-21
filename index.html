@@ -201,14 +201,23 @@ function recordGame(winnerId){
    stat(seriesWinner).matches++;stat(seriesLoser).matches++;stat(seriesWinner).wins++;
    const wasFinal=m.bracket==='Final';
    state.history.unshift({id:m.id,round:m.round,bracket:m.bracket,a:a.robot,b:b.robot,score:m.winsA+'-'+m.winsB,winner:seriesWinner.robot});
+   if(wasFinal && m.round.includes('reinicio')){
+     // En la serie decisiva, quien pierde recibe su segunda derrota y queda eliminado.
+     stat(seriesLoser).losses++;
+     seriesLoser.eliminated=true;
+     state.champion=seriesWinner.id;state.complete=true;state.current=null;
+     log(seriesLoser.robot+' queda eliminado en la serie decisiva.');
+     log(seriesWinner.robot+' gana la serie de reinicio y es campeón.');
+     save();render();toast('¡'+seriesWinner.robot+' es campeón!');return;
+   }
    if(wasFinal&&seriesWinner.id===a.id){
-     // A is the undefeated winners-bracket champion; if it wins the grand final, tournament ends.
+     // El finalista de winners conserva su condición invicta y gana el torneo.
      state.champion=a.id;state.complete=true;state.current=null;log(a.robot+' gana la gran final y es campeón.');save();render();toast('¡'+a.robot+' es campeón!');return;
    }
    if(wasFinal&&seriesWinner.id===b.id){
-     // Losers-bracket finalist wins: both finalists now have one loss; play a deciding reset final.
-     stat(a).losses++;stat(b).losses++;state.current=null;state.finalReset=true;
-     log(b.robot+' gana la primera gran final. Se jugará la serie de reinicio.'); 
+     // El finalista de losers ya tenía una derrota; solo el de winners recibe la primera.
+     stat(a).losses++;state.current=null;state.finalReset=true;
+     log(b.robot+' gana la primera gran final. Se jugará la serie de reinicio.');
      beginMatch(a,b,'Final','Gran final · reinicio');save();render();toast('Gran final reiniciada: una serie decisiva.');
      return;
    }
