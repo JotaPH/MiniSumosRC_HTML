@@ -5,6 +5,7 @@ import json
 import os
 import sqlite3
 import time
+from contextlib import closing
 
 BASE_DIR = Path(__file__).resolve().parent
 # En desarrollo, reutiliza la base de datos del proyecto Python si ambos repositorios
@@ -114,7 +115,7 @@ def assets(filename):
 @app.get("/api/database-status")
 def database_status():
     try:
-        with db_connect() as connection:
+        with closing(db_connect()) as connection, connection:
             tables = {row["name"] for row in connection.execute("SELECT name FROM sqlite_master WHERE type='table'")}
         return jsonify({"connected": True, "database": str(DB_PATH), "tables": sorted(tables)})
     except (OSError, sqlite3.Error) as error:
@@ -123,7 +124,7 @@ def database_status():
 @app.get("/api/participants")
 def list_participants():
     try:
-        with db_connect() as connection:
+        with closing(db_connect()) as connection, connection:
             rows = connection.execute("""
                 SELECT id, nombre, robot, peso, cumple_dimensiones, tipo_rc,
                        interruptor_visible, sin_elementos_fijacion, sensores_tapados
@@ -158,7 +159,7 @@ def create_participant():
     if error:
         return jsonify({"error": error}), 400
     try:
-        with db_connect() as connection:
+        with closing(db_connect()) as connection, connection:
             if db_has_active_matches(connection):
                 return jsonify({"error": "Ya hay batallas iniciadas o completadas. Reinicia la fase desde la aplicación de competencia antes de modificar participantes."}), 409
             duplicate = connection.execute("SELECT 1 FROM participantes WHERE lower(robot)=lower(?)", (data[1],)).fetchone()
@@ -180,7 +181,7 @@ def update_participant(participant_id):
     if error:
         return jsonify({"error": error}), 400
     try:
-        with db_connect() as connection:
+        with closing(db_connect()) as connection, connection:
             if db_has_active_matches(connection):
                 return jsonify({"error": "Ya hay batallas iniciadas o completadas. Reinicia la fase desde la aplicación de competencia antes de modificar participantes."}), 409
             duplicate = connection.execute("SELECT 1 FROM participantes WHERE lower(robot)=lower(?) AND id<>?", (data[1], participant_id)).fetchone()
@@ -198,7 +199,7 @@ def update_participant(participant_id):
 @app.delete("/api/participants/<int:participant_id>")
 def delete_participant(participant_id):
     try:
-        with db_connect() as connection:
+        with closing(db_connect()) as connection, connection:
             if db_has_active_matches(connection):
                 return jsonify({"error": "Ya hay batallas iniciadas o completadas. Reinicia la fase desde la aplicación de competencia antes de modificar participantes."}), 409
             cursor = connection.execute("DELETE FROM participantes WHERE id=?", (participant_id,))
@@ -211,7 +212,7 @@ def delete_participant(participant_id):
 @app.get("/api/matches")
 def list_matches():
     try:
-        with db_connect() as connection:
+        with closing(db_connect()) as connection, connection:
             rows = connection.execute("""
                 SELECT e.id, e.etapa, COALESCE(g.nombre, '') AS grupo, e.ronda,
                        p1.nombre AS piloto1, p1.robot AS robot1, p2.nombre AS piloto2, p2.robot AS robot2,
