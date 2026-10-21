@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MiniSumos RC · Panel de torneo</title>
+<style>
+:root{color-scheme:dark;--bg:#07111f;--panel:#0d1b2d;--panel2:#11243a;--line:#263b54;--text:#edf6ff;--muted:#8fa5bd;--cyan:#49eaff;--green:#36d98a;--red:#ff647c;--gold:#ffd36a;--blue:#7ab9ff}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 15% -20%,#14395a 0,transparent 48%),radial-gradient(ellipse at 95% 0,#22284a 0,transparent 36%),var(--bg);color:var(--text);font:14px/1.45 Inter,Segoe UI,Arial,sans-serif;min-height:100vh}
+button,input,select{font:inherit}button{cursor:pointer;transition:.18s ease}button:disabled{cursor:not-allowed;opacity:.4;filter:saturate(.45)}
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:20px clamp(16px,4vw,54px);border-bottom:1px solid #ffffff13;background:#07111fc9;backdrop-filter:blur(16px);position:sticky;top:0;z-index:10}
+.brand{display:flex;align-items:center;gap:13px}.brand-mark{width:44px;height:44px;border:1px solid #49eaff77;border-radius:13px;display:grid;place-items:center;color:var(--cyan);font-size:23px;background:#49eaff12;box-shadow:0 0 24px #49eaff12}.brand h1{font-size:17px;margin:0;letter-spacing:.07em}.brand p{margin:2px 0 0;color:var(--muted);font-size:11px;letter-spacing:.14em;text-transform:uppercase}
+.top-actions{display:flex;gap:9px;align-items:center}.pill{border:1px solid var(--line);border-radius:999px;padding:8px 12px;color:#c3d3e4;font-size:12px}.pill .dot{display:inline-block;width:7px;height:7px;background:var(--gold);border-radius:50%;margin-right:7px}
+.layout{display:grid;grid-template-columns:228px minmax(0,1fr);gap:24px;max-width:1560px;margin:0 auto;padding:28px clamp(14px,3vw,40px) 50px}
+.sidebar{display:flex;flex-direction:column;gap:7px;align-self:start;position:sticky;top:100px}.nav-label{color:#657f99;font-size:10px;letter-spacing:.18em;font-weight:800;margin:4px 12px 8px}.nav-btn{display:flex;align-items:center;gap:12px;text-align:left;width:100%;border:1px solid transparent;border-radius:11px;background:transparent;color:#9fb3c8;padding:13px 14px;font-weight:700}.nav-btn span:first-child{font-size:17px;width:21px;text-align:center}.nav-btn:hover{background:#ffffff08;color:white}.nav-btn.active{background:linear-gradient(100deg,#49eaff19,#49eaff05);border-color:#49eaff42;color:#e9fcff;box-shadow:inset 3px 0 var(--cyan)}
+.side-note{margin-top:20px;padding:15px;border:1px solid var(--line);border-radius:13px;background:#ffffff04;color:var(--muted);font-size:12px}.side-note strong{display:block;color:#d9eaff;margin-bottom:5px}
+main{min-width:0}.page-head{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;margin:2px 0 24px}.eyebrow{color:var(--cyan);font-size:10px;font-weight:900;letter-spacing:.2em;text-transform:uppercase}.page-head h2{font-size:clamp(25px,3vw,35px);line-height:1.1;margin:7px 0}.page-head p{margin:0;color:var(--muted);max-width:680px}.head-actions{display:flex;gap:9px;flex-wrap:wrap}
+.btn{border:1px solid var(--line);border-radius:10px;padding:10px 14px;background:#13253a;color:#e5f2ff;font-weight:800}.btn:hover:not(:disabled){border-color:#6686a5;transform:translateY(-1px)}.btn.primary{background:linear-gradient(110deg,#49eaff,#7ef0f3);border-color:transparent;color:#04121f}.btn.green{background:#123d30;border-color:#236f52;color:#8fffc4}.btn.red{background:#401c2a;border-color:#733044;color:#ff9cac}.btn.ghost{background:transparent}.btn.small{padding:7px 10px;font-size:12px}
+.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:18px}.stat{border:1px solid var(--line);border-radius:14px;padding:17px;background:linear-gradient(140deg,#11243a,#0a1727);min-width:0}.stat-label{color:var(--muted);font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}.stat-value{font-size:28px;font-weight:900;margin-top:7px;letter-spacing:-.04em}.stat-sub{font-size:11px;color:#7590aa;margin-top:2px}
+.panel{background:linear-gradient(145deg,#0f1e30ed,#0a1726f5);border:1px solid var(--line);border-radius:16px;overflow:hidden;min-width:0}.panel-head{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:17px 19px;border-bottom:1px solid var(--line)}.panel-head h3{font-size:14px;margin:0;letter-spacing:.04em}.panel-head p{font-size:11px;color:var(--muted);margin:4px 0 0}.panel-body{padding:18px}.section-grid{display:grid;grid-template-columns:minmax(300px,.83fr) minmax(0,1.3fr);gap:16px}.field{display:flex;flex-direction:column;gap:7px}.field label{color:#9eb4c9;font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase}.field input,.field select{width:100%;min-width:0;border:1px solid #2a415c;background:#081524;color:#eff8ff;border-radius:9px;padding:11px 12px;outline:none}.field input:focus,.field select:focus{border-color:var(--cyan);box-shadow:0 0 0 3px #49eaff15}.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:13px}.full{grid-column:1/-1}.checks{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:14px}.check{display:flex;gap:8px;align-items:flex-start;color:#b7c8d9;font-size:12px;line-height:1.35}.check input{accent-color:var(--green);margin-top:2px}.form-footer{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:17px}.hint{color:var(--muted);font-size:11px}.table-wrap{overflow:auto}table{width:100%;border-collapse:collapse;white-space:nowrap}th{text-align:left;color:#819bb5;font-size:10px;letter-spacing:.12em;font-weight:900;padding:12px 15px;border-bottom:1px solid var(--line);background:#0a1726}td{padding:13px 15px;border-bottom:1px solid #ffffff0c;color:#d9e7f5}tbody tr:hover{background:#ffffff04}tbody tr:last-child td{border-bottom:0}.robot-cell{display:flex;align-items:center;gap:10px}.avatar{width:32px;height:32px;border-radius:9px;display:grid;place-items:center;background:#15314a;color:var(--cyan);font-weight:900}.robot-cell strong{display:block;font-size:12px}.robot-cell small{display:block;color:var(--muted);font-size:11px;margin-top:2px}.weight{font-weight:800}.weight.ok{color:var(--green)}.weight.bad{color:var(--red)}.status-tag{display:inline-flex;align-items:center;gap:5px;border-radius:999px;padding:5px 8px;font-size:10px;font-weight:900;background:#16372e;color:#7ef3b4}.status-tag.invalid{background:#42202a;color:#ff91a2}.row-actions{display:flex;gap:5px}.icon-btn{width:30px;height:30px;border:1px solid var(--line);border-radius:8px;background:#12243a;color:#b7cce1}.icon-btn:hover{border-color:var(--red);color:#ff9cac}
+.brackets{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:start}.bracket{border-radius:16px;overflow:hidden;border:1px solid var(--line);background:#0c1929}.bracket.winners{border-top:3px solid var(--green)}.bracket.losers{border-top:3px solid var(--red)}.bracket-title{display:flex;justify-content:space-between;align-items:center;padding:17px 18px;border-bottom:1px solid var(--line)}.bracket-title h3{margin:0;font-size:15px}.bracket-title small{color:var(--muted);font-size:11px}.bracket.winners .bracket-title h3{color:#86f5b7}.bracket.losers .bracket-title h3{color:#ff92a4}.bracket-content{padding:12px;display:flex;flex-direction:column;gap:9px;min-height:165px}.entry{display:grid;grid-template-columns:24px minmax(0,1fr) auto;align-items:center;gap:9px;border:1px solid #263c52;border-radius:10px;padding:10px 11px;background:#102136}.entry .rank{color:#6e89a4;font-size:10px;font-weight:900}.entry strong{font-size:12px;display:block;overflow:hidden;text-overflow:ellipsis}.entry small{display:block;color:#7f9ab4;font-size:10px;margin-top:2px}.entry .record{color:#d0deeb;font-size:11px;font-weight:900}.entry.eliminated{opacity:.45}.empty{padding:22px;text-align:center;color:#728aa2;font-size:12px;border:1px dashed #263c52;border-radius:10px}
+.lower-grid{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(270px,.8fr);gap:16px;margin-top:16px}.match-card{padding:18px}.match-top{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:15px}.match-label{font-size:10px;font-weight:900;letter-spacing:.15em;color:var(--cyan)}.match-top .series{font-size:11px;color:var(--muted)}.duel{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:12px}.duelist{min-width:0;text-align:center;border:1px solid #2a4059;border-radius:12px;background:#0a1726;padding:15px 10px}.duelist .robot-icon{font-size:25px}.duelist strong{display:block;margin-top:7px;font-size:13px;overflow-wrap:anywhere}.duelist small{display:block;color:var(--muted);font-size:10px;margin-top:3px}.wins{display:flex;justify-content:center;gap:4px;margin-top:11px}.wins i{width:16px;height:5px;border-radius:9px;background:#293d52}.wins i.on{background:var(--green);box-shadow:0 0 10px #36d98a66}.versus{font-size:13px;font-weight:1000;color:#6b849d;font-style:italic}.match-controls{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:14px}.match-controls button{white-space:normal;min-height:43px}.match-note{color:var(--muted);font-size:11px;margin-top:12px;line-height:1.5}.feed{display:flex;flex-direction:column;gap:10px}.feed-item{display:flex;gap:10px;align-items:flex-start;font-size:12px;color:#b8cadd}.feed-icon{width:25px;height:25px;flex:0 0 25px;display:grid;place-items:center;border-radius:8px;background:#142a40;color:var(--cyan)}.feed-item time{display:block;color:#7189a1;font-size:10px;margin-top:3px}
+.ranking-note{padding:12px 14px;border:1px solid #4a3d22;background:#2b2518;color:#e9d6a3;border-radius:10px;font-size:11px;margin-bottom:14px}.subtabs{display:flex;gap:7px}.subtab{border:1px solid var(--line);border-radius:8px;padding:7px 11px;background:transparent;color:#9eb4c9;font-size:11px;font-weight:900}.subtab.active{background:#18344a;border-color:#36728a;color:#d8fbff}
+.toast{position:fixed;right:22px;bottom:22px;z-index:50;max-width:min(400px,calc(100vw - 30px));padding:13px 16px;border:1px solid #357b61;border-radius:12px;background:#102d25;color:#b9ffdc;box-shadow:0 16px 50px #0007;opacity:0;transform:translateY(10px);pointer-events:none;transition:.22s}.toast.show{opacity:1;transform:translateY(0)}
+.hidden{display:none!important}.footnote{margin-top:18px;color:#5f7892;font-size:10px;text-align:center}
+@media(max-width:1050px){.layout{grid-template-columns:1fr}.sidebar{position:static;display:flex;flex-direction:row;overflow:auto}.nav-label,.side-note{display:none}.nav-btn{width:auto;white-space:nowrap;padding:10px 12px}.stats{grid-template-columns:repeat(2,1fr)}.section-grid{grid-template-columns:1fr}.brackets{grid-template-columns:1fr}.lower-grid{grid-template-columns:1fr}}
+@media(max-width:600px){.topbar{padding:13px 14px}.brand h1{font-size:14px}.brand p{font-size:9px}.pill{display:none}.layout{padding:19px 12px 35px;gap:16px}.page-head{align-items:flex-start;flex-direction:column}.stats{gap:8px}.stat{padding:13px}.stat-value{font-size:24px}.panel-body{padding:13px}.form-grid{grid-template-columns:1fr}.full{grid-column:auto}.checks{grid-template-columns:1fr}.duel{gap:5px}.duelist{padding:12px 5px}.duelist strong{font-size:11px}.match-controls{grid-template-columns:1fr}.table-wrap{margin:0 -13px}.panel-head{padding:14px}.panel-head h3{font-size:12px}}
+</style>
+</head>
+<body>
+<header class="topbar">
+ <div class="brand"><div class="brand-mark">⌁</div><div><h1>MINISUMOS <span style="color:var(--cyan)">RC</span></h1><p>Panel de competencia · Prototipo HTML</p></div></div>
+ <div class="top-actions"><span class="pill"><span class="dot"></span>Modo demostración</span><button class="btn small ghost" id="resetDemo">Reiniciar demo</button></div>
+</header>
+<div class="layout">
+ <nav class="sidebar">
+  <div class="nav-label">GESTIÓN DEL TORNEO</div>
+  <button class="nav-btn active" data-page="dashboard"><span>◫</span> Resumen</button>
+  <button class="nav-btn" data-page="participants"><span>♟</span> Participantes</button>
+  <button class="nav-btn" data-page="brackets"><span>⇄</span> Ganadores / Perdedores</button>
+  <button class="nav-btn" data-page="matches"><span>⚔</span> Batalla actual</button>
+  <button class="nav-btn" data-page="ranking"><span>≋</span> Miniclasificaciones</button>
+  <div class="side-note"><strong>Formato de torneo</strong>Doble eliminación. Dos derrotas eliminan al robot. Cada enfrentamiento se disputa al mejor de tres batallas.</div>
+ </nav>
+ <main>
+  <section class="page" id="page-dashboard">
+   <div class="page-head"><div><div class="eyebrow">Vista general</div><h2>Panel de competencia</h2><p>Administra los robots y sigue el avance de las llaves en tiempo real.</p></div><div class="head-actions"><button class="btn" data-goto="participants">＋ Registrar participante</button><button class="btn primary" id="startTournament">Iniciar torneo</button></div></div>
+   <div class="stats">
+    <div class="stat"><div class="stat-label">Participantes válidos</div><div class="stat-value" id="statParticipants">8</div><div class="stat-sub">Máximo 500 g · Mini Sumo RC</div></div>
+    <div class="stat"><div class="stat-label">En tabla de ganadores</div><div class="stat-value" id="statWinners">8</div><div class="stat-sub">Una derrota antes de caer</div></div>
+    <div class="stat"><div class="stat-label">En tabla de perdedores</div><div class="stat-value" id="statLosers">0</div><div class="stat-sub">Una segunda derrota elimina</div></div>
+    <div class="stat"><div class="stat-label">Combates completados</div><div class="stat-value" id="statMatches">0</div><div class="stat-sub" id="statPhase">Torneo sin iniciar</div></div>
+   </div>
+   <div class="brackets">
+    <section class="bracket winners"><div class="bracket-title"><div><h3>◈ Tabla de ganadores</h3><small>Winners bracket</small></div><span class="status-tag" id="winnersCount">8 robots</span></div><div class="bracket-content" id="dashboardWinners"></div></section>
+    <section class="bracket losers"><div class="bracket-title"><div><h3>◈ Tabla de perdedores</h3><small>Losers bracket</small></div><span class="status-tag invalid" id="losersCount">0 robots</span></div><div class="bracket-content" id="dashboardLosers"></div></section>
+   </div>
+   <div class="lower-grid">
+    <section class="panel"><div class="panel-head"><div><h3>Próximo enfrentamiento</h3><p>Serie al mejor de 3 · Se detiene al llegar a dos victorias</p></div><span class="status-tag" id="matchStatus">Pendiente</span></div><div class="match-card" id="dashboardMatch"></div></section>
+    <section class="panel"><div class="panel-head"><div><h3>Actividad del torneo</h3><p>Movimientos recientes de las tablas</p></div></div><div class="panel-body"><div class="feed" id="activityFeed"></div></div></section>
+   </div>
+  </section>
+  <section class="page hidden" id="page-participants">
+   <div class="page-head"><div><div class="eyebrow">Inscripción</div><h2>Participantes</h2><p>Registra los datos del piloto y valida los requisitos del robot antes de iniciar.</p></div><div class="head-actions"><span class="pill" id="participantCountPill">8 inscritos</span></div></div>
+   <div class="section-grid">
+    <section class="panel"><div class="panel-head"><div><h3 id="formTitle">Nuevo participante</h3><p>Los campos marcados son necesarios para validar el registro.</p></div></div><div class="panel-body">
+     <form id="participantForm">
+      <div class="form-grid">
+       <div class="field"><label for="personName">Nombre del piloto</label><input id="personName" maxlength="70" placeholder="Ej. Juan Pérez" required></div>
+       <div class="field"><label for="robotName">Nombre del robot</label><input id="robotName" maxlength="40" placeholder="Ej. LaMarimonda" required></div>
+       <div class="field full"><label for="robotWeight">Peso (gramos)</label><input id="robotWeight" type="number" min="0.1" max="500" step="0.1" placeholder="Máximo 500 g" required></div>
+      </div>
+      <div class="checks">
+       <label class="check"><input id="checkDimensions" type="checkbox" checked> Cumple las dimensiones reglamentarias</label>
+       <label class="check"><input id="checkRC" type="checkbox" checked> Es un robot Mini Sumo RC</label>
+       <label class="check"><input id="checkSwitch" type="checkbox" checked> Interruptor visible</label>
+       <label class="check"><input id="checkFixings" type="checkbox" checked> Sin elementos de fijación indebidos</label>
+       <label class="check"><input id="checkSensors" type="checkbox" checked> Sensores tapados</label>
+      </div>
+      <div class="form-footer"><span class="hint">Se permiten robots de hasta 500 g.</span><div style="display:flex;gap:8px"><button type="button" class="btn ghost hidden" id="cancelEdit">Cancelar</button><button type="submit" class="btn primary" id="saveParticipant">Agregar participante</button></div></div>
+     </form>
+    </div></section>
+    <section class="panel"><div class="panel-head"><div><h3>Lista de inscritos</h3><p>Los cambios después de iniciar el torneo reinician las llaves con confirmación.</p></div><button class="btn small" id="loadExample">Cargar ejemplo</button></div><div class="table-wrap"><table><thead><tr><th>PILOTO / ROBOT</th><th>PESO</th><th>REGLAMENTO</th><th>ACCIONES</th></tr></thead><tbody id="participantsTable"></tbody></table></div></section>
+   </div>
+  </section>
+  <section class="page hidden" id="page-brackets">
+   <div class="page-head"><div><div class="eyebrow">Doble eliminación</div><h2>Ganadores / Perdedores</h2><p>Los resultados actualizan las tablas al terminar cada enfrentamiento. El primer tropiezo mueve a perdedores; el segundo elimina.</p></div><div class="head-actions"><button class="btn" data-goto="ranking">Ver miniclasificaciones</button></div></div>
+   <div class="ranking-note">Si hay un número impar de robots disponibles, el sistema prioriza quienes menos enfrentamientos han disputado. Si queda uno sin pareja, se ordena la tabla por porcentaje de ataques y luego por menor tiempo promedio para decidir quién cruza con el robot pendiente.</div>
+   <div class="brackets">
+    <section class="bracket winners"><div class="bracket-title"><div><h3>◈ Tabla de ganadores</h3><small>Una derrota permitida</small></div><span class="status-tag" id="bracketWinnersCount">8 robots</span></div><div class="bracket-content" id="bracketWinners"></div></section>
+    <section class="bracket losers"><div class="bracket-title"><div><h3>◈ Tabla de perdedores</h3><small>Segunda derrota = eliminación</small></div><span class="status-tag invalid" id="bracketLosersCount">0 robots</span></div><div class="bracket-content" id="bracketLosers"></div></section>
+   </div>
+   <div class="panel" style="margin-top:16px"><div class="panel-head"><div><h3>Cola de enfrentamientos</h3><p>El orden se ajusta según el avance y la cantidad de combates de cada robot.</p></div><span class="pill" id="queueCount">0 pendientes</span></div><div class="table-wrap"><table><thead><tr><th>#</th><th>LLAVE</th><th>ROBOT A</th><th>ROBOT B</th><th>SERIE</th><th>ESTADO</th></tr></thead><tbody id="queueTable"></tbody></table></div></div>
+  </section>
+  <section class="page hidden" id="page-matches">
+   <div class="page-head"><div><div class="eyebrow">Mesa de control</div><h2>Batalla actual</h2><p>Registra el ganador de cada batalla individual. La serie termina automáticamente con dos victorias.</p></div><span class="pill">Serie al mejor de 3</span></div>
+   <div class="lower-grid" style="margin-top:0;grid-template-columns:minmax(0,1.3fr) minmax(260px,.7fr)">
+    <section class="panel"><div class="panel-head"><div><h3>Enfrentamiento en curso</h3><p id="currentMatchMeta">Esperando inicio del torneo</p></div><span class="status-tag" id="currentMatchStatus">Pendiente</span></div><div class="match-card" id="currentMatchPanel"></div></section>
+    <section class="panel"><div class="panel-head"><div><h3>Cómo se registra</h3></div></div><div class="panel-body"><div class="feed">
+     <div class="feed-item"><div class="feed-icon">1</div><div><strong>Registrar resultado</strong><br>Selecciona quién ganó la batalla física.</div></div>
+     <div class="feed-item"><div class="feed-icon">2</div><div><strong>Serie al mejor de 3</strong><br>Al llegar a dos victorias, no se habilita una tercera.</div></div>
+     <div class="feed-item"><div class="feed-icon">3</div><div><strong>Actualización automática</strong><br>El perdedor cambia de tabla o queda eliminado si ya tenía una derrota.</div></div>
+     <div class="feed-item"><div class="feed-icon">4</div><div><strong>Gran final</strong><br>Si gana el finalista de perdedores, se disputa una serie de reinicio; si gana el de ganadores, es campeón.</div></div>
+    </div></div></section>
+   </div>
+   <section class="panel" style="margin-top:16px"><div class="panel-head"><div><h3>Historial de series</h3><p>Resultados definitivos por enfrentamiento</p></div></div><div class="table-wrap"><table><thead><tr><th>#</th><th>RONDA</th><th>ENFRENTAMIENTO</th><th>RESULTADO</th><th>GANADOR</th></tr></thead><tbody id="historyTable"></tbody></table></div></section>
+  </section>
+  <section class="page hidden" id="page-ranking">
+   <div class="page-head"><div><div class="eyebrow">Desempates</div><h2>Miniclasificaciones</h2><p>Orden interno para decidir cruces cuando hay un robot esperando, especialmente en rondas impares.</p></div></div>
+   <div class="ranking-note">Criterio provisional del prototipo: 1) porcentaje de ataques (ataques propios ÷ ataques totales), 2) menor tiempo promedio de combate. Si ambos datos son iguales, se usa menor número de enfrentamientos para equilibrar la participación. Los datos de ejemplo son demostrativos.</div>
+   <div class="panel"><div class="panel-head"><div><h3>Tabla de ganadores</h3><p>Solo robots que siguen sin derrotas.</p></div></div><div class="table-wrap"><table><thead><tr><th>POS.</th><th>ROBOT / PILOTO</th><th>COMBATES</th><th>ATAQUES</th><th>% ATAQUES</th><th>TIEMPO PROM.</th><th>DERROTAS</th></tr></thead><tbody id="rankingWinners"></tbody></table></div></div>
+   <div class="panel" style="margin-top:16px"><div class="panel-head"><div><h3>Tabla de perdedores</h3><p>Orden para emparejar sin cargar siempre al mismo robot.</p></div></div><div class="table-wrap"><table><thead><tr><th>POS.</th><th>ROBOT / PILOTO</th><th>COMBATES</th><th>ATAQUES</th><th>% ATAQUES</th><th>TIEMPO PROM.</th><th>DERROTAS</th></tr></thead><tbody id="rankingLosers"></tbody></table></div></div>
+  </section>
+  <div class="footnote">MiniSumos RC · Vista de prototipo. Los resultados se guardan localmente en este navegador; todavía no hay conexión con Flask, SQLite ni ESP32.</div>
+ </main>
+</div>
+<div class="toast" id="toast"></div>
+<script>
+const STORAGE_KEY='minisumosrc_html_preview_v1';
+const sampleParticipants=[
+ {id:1,person:'Juan Pérez',robot:'Alpha',weight:482,checks:[true,true,true,true,true]},
+ {id:2,person:'Laura Gómez',robot:'Gamma',weight:495,checks:[true,true,true,true,true]},
+ {id:3,person:'Andrés Ruiz',robot:'Titán',weight:471,checks:[true,true,true,true,true]},
+ {id:4,person:'Camila Rojas',robot:'LaMarimonda',weight:488,checks:[true,true,true,true,true]},
+ {id:5,person:'Mateo Díaz',robot:'Omega',weight:463,checks:[true,true,true,true,true]},
+ {id:6,person:'Sara López',robot:'LaJota',weight:499,checks:[true,true,true,true,true]},
+ {id:7,person:'Nicolás Vera',robot:'Fénix',weight:477,checks:[true,true,true,true,true]},
+ {id:8,person:'Valentina Cruz',robot:'Mantis',weight:486,checks:[true,true,true,true,true]}
+];
+const initialState=()=>({participants:sampleParticipants.map(p=>({...p,checks:[...p.checks]})),started:false,complete:false,champion:null,nextId:9,nextMatchId:1,current:null,history:[],activity:[{text:'Prototipo cargado con ocho robots de ejemplo.',time:'Ahora'}],round:1,stage:'Inicial',editing:null,stats:{},finalReset:false});
+let state=loadState();
+function loadState(){try{const raw=localStorage.getItem(STORAGE_KEY);if(raw){const parsed=JSON.parse(raw);if(parsed&&Array.isArray(parsed.participants))return parsed}}catch(e){}return initialState()}
+function save(){localStorage.setItem(STORAGE_KEY,JSON.stringify(state))}
+function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function valid(p){return Number(p.weight)>0&&Number(p.weight)<=500&&p.checks.every(Boolean)}
+function stat(p){return state.stats[p.id]||(state.stats[p.id]={matches:0,losses:0,wins:0,own:0,total:0,timeTotal:0,timeCount:0})}
+function pct(p){let s=stat(p);return s.total?100*s.own/s.total:0}
+function avgTime(p){let s=stat(p);return s.timeCount?s.timeTotal/s.timeCount:null}
+function fmtTime(sec){if(sec==null)return'—';let m=Math.floor(sec/60),s=Math.floor(sec%60),cs=Math.floor(sec*100)%100;return m+':'+String(s).padStart(2,'0')+':'+String(cs).padStart(2,'0')}
+function alive(){return state.participants.filter(p=>valid(p)&&!p.eliminated)}
+function winners(){return alive().filter(p=>(stat(p).losses||0)===0)}
+function losers(){return alive().filter(p=>(stat(p).losses||0)===1)}
+function robot(id){return state.participants.find(p=>p.id===id)}
+function log(text){state.activity.unshift({text,time:new Date().toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'})});state.activity=state.activity.slice(0,7)}
+function toast(text){const t=document.getElementById('toast');t.textContent=text;t.classList.add('show');clearTimeout(window._toastTimer);window._toastTimer=setTimeout(()=>t.classList.remove('show'),2800)}
+function compareRank(a,b){return pct(b)-pct(a)||(avgTime(a)??Infinity)-(avgTime(b)??Infinity)||stat(a).matches-stat(b).matches||a.robot.localeCompare(b.robot,'es')}
+function nextPair(pool,exclude=[]){const eligible=pool.filter(p=>!exclude.includes(p.id));if(eligible.length<2)return null;eligible.sort((a,b)=>stat(a).matches-stat(b).matches||compareRank(a,b));const a=eligible[0];const opponents=eligible.filter(p=>p.id!==a.id).sort((x,y)=>stat(x).matches-stat(y).matches||compareRank(y,x));return[a,opponents[0]]}
+function beginMatch(a,b,bracket,roundLabel){state.current={id:state.nextMatchId++,a:a.id,b:b.id,bracket,round:roundLabel||state.stage,winsA:0,winsB:0,games:[],status:'En curso'};state.stage=roundLabel||bracket;log('Inicia '+state.current.round+': '+a.robot+' vs '+b.robot+'.')}
+function scheduleNext(){
+ if(state.champion||!state.started){state.current=null;return}
+ let w=winners().sort((a,b)=>stat(a).matches-stat(b).matches||compareRank(a,b));
+ let l=losers().sort((a,b)=>stat(a).matches-stat(b).matches||compareRank(b,a));
+ // La gran final se programa cuando queda un robot en cada tabla.
+ if(w.length===1&&l.length===1){
+   beginMatch(w[0],l[0],'Final','Gran final');return;
+ }
+ // Durante la fase inicial, todos deben tener al menos una serie en winners antes de avanzar a la siguiente ronda.
+ if(state.round===1){
+   const withoutFirst=w.filter(p=>stat(p).matches===0);
+   const pair=nextPair(withoutFirst);
+   if(pair){beginMatch(pair[0],pair[1],'Ganadores','Ronda inicial');return}
+   // Con impar, se empareja el robot con menos partidos frente al siguiente según la miniclasificación.
+   if(withoutFirst.length===1&&w.length>1){const opponent=nextPair(w.filter(p=>p.id!==withoutFirst[0].id));if(opponent){beginMatch(withoutFirst[0],opponent[0],'Ganadores','Cruce de ajuste');return}}
+   state.round=2;state.stage='Ronda 2';
+ }
+ // Cuando hay al menos dos robots en losers, se prioriza jugar allí; si queda uno esperando, se esperan nuevas caídas.
+ if(l.length>=2){const pair=nextPair(l);if(pair){beginMatch(pair[0],pair[1],'Perdedores','Ronda de perdedores');return}}
+ // Nueva ronda winners: quienes tienen menos series primero para reducir diferencias de participación.
+ if(w.length>=2){const pair=nextPair(w);if(pair){state.round=Math.max(2,state.round);beginMatch(pair[0],pair[1],'Ganadores','Ronda '+state.round);return}}
+ // Si ya solo hay un robot vivo en total, es campeón.
+ const remaining=alive();
+ if(remaining.length===1){state.champion=remaining[0].id;state.current=null;state.complete=true;log(remaining[0].robot+' es campeón del torneo.');return}
+ // En un escenario impar con una sola persona esperando, cruza con la mejor ubicada en su tabla.
+ if(w.length===1&&l.length>=1){const pair=nextPair(l);if(pair){beginMatch(pair[0],pair[1],'Perdedores','Cruce de ajuste');return}}
+ state.current=null;
+}
+function startTournament(){
+ const validP=state.participants.filter(valid);
+ if(validP.length<2){toast('Necesitas al menos dos participantes válidos.');return}
+ if(state.started&&!confirm('¿Reiniciar el torneo y borrar todos los resultados actuales?'))return;
+ state.started=true;state.complete=false;state.champion=null;state.current=null;state.history=[];state.activity=[];state.round=1;state.stage='Ronda inicial';state.finalReset=false;state.stats={};
+ state.participants.forEach(p=>{p.eliminated=!valid(p);stat(p)});
+ log('Torneo iniciado con '+validP.length+' participantes válidos.');scheduleNext();save();render();toast('Torneo iniciado.');
+}
+function addParticipant(p){state.participants.push(p);state.nextId=Math.max(state.nextId,p.id+1);save()}
+function recordGame(winnerId){
+ const m=state.current;if(!m||state.complete)return;
+ const a=robot(m.a),b=robot(m.b),winner=robot(winnerId),loser=winnerId===m.a?b:a;
+ if(!winner||!loser)return;
+ const winnerIsA=winnerId===m.a;
+ if(winnerIsA)m.winsA++;else m.winsB++;
+ const gameNum=m.games.length+1;
+ // Registro de muestra para probar estadísticas: 2 ataques del ganador y 1 del rival.
+ const sW=stat(winner),sL=stat(loser);sW.own+=2;sW.total+=3;sL.own+=1;sL.total+=3;
+ const duration=38+((m.id*7+gameNum*11)%69);
+ sW.timeTotal+=duration;sW.timeCount++;sL.timeTotal+=duration;sL.timeCount++;
+ m.games.push({winner:winnerId,score:m.winsA+'-'+m.winsB,duration});
+ if(m.winsA<2&&m.winsB<2){log(winner.robot+' gana batalla individual '+gameNum+' ('+m.winsA+'-'+m.winsB+').');}
+ if(m.winsA===2||m.winsB===2){
+   const seriesWinner=m.winsA===2?a:b,seriesLoser=m.winsA===2?b:a;
+   stat(seriesWinner).matches++;stat(seriesLoser).matches++;stat(seriesWinner).wins++;
+   const wasFinal=m.bracket==='Final';
+   state.history.unshift({id:m.id,round:m.round,bracket:m.bracket,a:a.robot,b:b.robot,score:m.winsA+'-'+m.winsB,winner:seriesWinner.robot});
+   if(wasFinal&&seriesWinner.id===a.id){
+     // A is the undefeated winners-bracket champion; if it wins the grand final, tournament ends.
+     state.champion=a.id;state.complete=true;state.current=null;log(a.robot+' gana la gran final y es campeón.');save();render();toast('¡'+a.robot+' es campeón!');return;
+   }
+   if(wasFinal&&seriesWinner.id===b.id){
+     // Losers-bracket finalist wins: both finalists now have one loss; play a deciding reset final.
+     stat(a).losses++;stat(b).losses++;state.current=null;state.finalReset=true;
+     log(b.robot+' gana la primera gran final. Se jugará la serie de reinicio.'); 
+     beginMatch(a,b,'Final','Gran final · reinicio');save();render();toast('Gran final reiniciada: una serie decisiva.');
+     return;
+   }
+   seriesLoser && (stat(seriesLoser).losses++);
+   if(stat(seriesLoser).losses>=2){seriesLoser.eliminated=true;log(seriesLoser.robot+' queda eliminado con dos derrotas.')}
+   else log(seriesLoser.robot+' pasa a la tabla de perdedores.');
+   if(state.current.bracket==='Final'&&state.current.round.includes('reinicio')){
+     const champ=seriesWinner;state.champion=champ.id;state.complete=true;state.current=null;log(champ.robot+' gana la serie de reinicio y es campeón.');save();render();toast('¡'+champ.robot+' es campeón!');return;
+   }
+   state.current=null;state.round++;scheduleNext();
+ }else{log(winner.robot+' suma una victoria de la serie ('+m.winsA+'-'+m.winsB+').')}
+ save();render();
+}
+function startMatch(){if(!state.started){toast('Primero inicia el torneo.');return}if(!state.current)scheduleNext();save();render()}
+function seriesHTML(m,large=false){
+ if(!m)return '<div class="empty">No hay enfrentamiento pendiente. Inicia el torneo para generar las primeras llaves.</div>';
+ const a=robot(m.a),b=robot(m.b);if(!a||!b)return '<div class="empty">Esperando participantes válidos.</div>';
+ const wins=(n)=>'<div class="wins">'+[0,1].map(i=>'<i class="'+(i<n?'on':'')+'"></i>').join('')+'</div>';
+ return '<div class="match-top"><span class="match-label">'+esc(m.round)+' · '+esc(m.bracket)+'</span><span class="series">Serie '+m.winsA+' — '+m.winsB+'</span></div><div class="duel"><div class="duelist"><div class="robot-icon">🤖</div><strong>'+esc(a.robot)+'</strong><small>'+esc(a.person)+'</small>'+wins(m.winsA)+'</div><div class="versus">VS</div><div class="duelist"><div class="robot-icon">🤖</div><strong>'+esc(b.robot)+'</strong><small>'+esc(b.person)+'</small>'+wins(m.winsB)+'</div></div><div class="match-controls"><button class="btn green" '+(m.winsA>=2||m.winsB>=2?'disabled':'')+' data-win="'+a.id+'">Victoria de '+esc(a.robot)+'</button><button class="btn green" '+(m.winsA>=2||m.winsB>=2?'disabled':'')+' data-win="'+b.id+'">Victoria de '+esc(b.robot)+'</button></div><div class="match-note">Demo: cada registro simula una batalla física y actualiza los indicadores de ataques y tiempo. En producción, estos valores llegarán desde el sistema de batalla.</div>';
+}
+function entryHTML(p,i){const s=stat(p);return '<div class="entry '+(p.eliminated?'eliminated':'')+'"><span class="rank">'+String(i+1).padStart(2,'0')+'</span><div><strong>'+esc(p.robot)+'</strong><small>'+esc(p.person)+' · '+s.matches+' series · '+s.losses+' derrotas</small></div><span class="record">'+s.wins+'V / '+s.losses+'D</span></div>'}
+function renderBracket(target,arr){const el=document.getElementById(target);el.innerHTML=arr.length?arr.slice().sort(compareRank).map(entryHTML).join(''):'<div class="empty">Sin robots en esta tabla por ahora.</div>'}
+function renderParticipants(){
+ const body=document.getElementById('participantsTable');
+ body.innerHTML=state.participants.map(p=>'<tr><td><div class="robot-cell"><div class="avatar">'+esc((p.robot||'?').slice(0,1).toUpperCase())+'</div><div><strong>'+esc(p.robot)+'</strong><small>'+esc(p.person)+'</small></div></div></td><td><span class="weight '+(Number(p.weight)>0&&Number(p.weight)<=500?'ok':'bad')+'">'+esc(p.weight)+' g</span></td><td><span class="status-tag '+(valid(p)?'':'invalid')+'">'+(valid(p)?'Válido':'No válido')+'</span></td><td><div class="row-actions"><button class="icon-btn" title="Editar" data-edit="'+p.id+'">✎</button><button class="icon-btn" title="Eliminar" data-delete="'+p.id+'">×</button></div></td></tr>').join('')||'<tr><td colspan="4" class="hint">Todavía no hay participantes registrados.</td></tr>';
+ document.getElementById('participantCountPill').textContent=state.participants.length+' inscritos';
+ document.getElementById('statParticipants').textContent=state.participants.filter(valid).length;
+}
+function renderRankTable(target,arr){
+ const sorted=arr.slice().sort(compareRank);document.getElementById(target).innerHTML=sorted.map((p,i)=>{const s=stat(p);return '<tr><td>'+String(i+1).padStart(2,'0')+'</td><td><div class="robot-cell"><div class="avatar">'+esc(p.robot.slice(0,1))+'</div><div><strong>'+esc(p.robot)+'</strong><small>'+esc(p.person)+'</small></div></div></td><td>'+s.matches+'</td><td>'+s.own+' / '+s.total+'</td><td>'+pct(p).toFixed(1)+'%</td><td>'+fmtTime(avgTime(p))+'</td><td>'+s.losses+'</td></tr>'}).join('')||'<tr><td colspan="7" class="hint">La miniclasificación aparecerá cuando haya resultados.</td></tr>'
+}
+function renderQueue(){
+ const body=document.getElementById('queueTable');const rows=state.history.map((m,i)=>'<tr><td>'+m.id+'</td><td>'+esc(m.round)+'</td><td>'+esc(m.a)+' vs '+esc(m.b)+'</td><td>'+m.score+'</td><td>'+esc(m.winner)+'</td><td><span class="status-tag">Completado</span></td></tr>');
+ if(state.current)rows.unshift('<tr><td>'+state.current.id+'</td><td>'+esc(state.current.round)+'</td><td>'+esc(robot(state.current.a)?.robot)+' vs '+esc(robot(state.current.b)?.robot)+'</td><td>'+state.current.winsA+'-'+state.current.winsB+'</td><td>—</td><td><span class="status-tag invalid">En curso</span></td></tr>');
+ body.innerHTML=rows.join('')||'<tr><td colspan="6" class="hint">El calendario se generará al iniciar el torneo.</td></tr>';
+ document.getElementById('queueCount').textContent=(state.current?1:0)+' actual · '+state.history.length+' finalizados';
+ document.getElementById('historyTable').innerHTML=state.history.map(m=>'<tr><td>'+m.id+'</td><td>'+esc(m.round)+'</td><td>'+esc(m.a)+' vs '+esc(m.b)+'</td><td>'+m.score+'</td><td>'+esc(m.winner)+'</td></tr>').join('')||'<tr><td colspan="5" class="hint">No hay series finalizadas.</td></tr>';
+}
+function render(){
+ const w=winners(),l=losers(),validCount=state.participants.filter(valid).length;
+ document.getElementById('statWinners').textContent=w.length;document.getElementById('statLosers').textContent=l.length;document.getElementById('statMatches').textContent=state.history.length;
+ document.getElementById('statPhase').textContent=state.complete?'Torneo finalizado':state.started?'Ronda '+state.round+' · '+state.stage:'Torneo sin iniciar';
+ document.getElementById('winnersCount').textContent=w.length+' robots';document.getElementById('losersCount').textContent=l.length+' robots';
+ document.getElementById('bracketWinnersCount').textContent=w.length+' robots';document.getElementById('bracketLosersCount').textContent=l.length+' robots';
+ renderBracket('dashboardWinners',w);renderBracket('dashboardLosers',l);renderBracket('bracketWinners',w);renderBracket('bracketLosers',l);
+ document.getElementById('dashboardMatch').innerHTML=state.complete?'<div class="empty">🏆 Campeón: <strong>'+esc(robot(state.champion)?.robot||'—')+'</strong></div>':seriesHTML(state.current);
+ document.getElementById('currentMatchPanel').innerHTML=state.complete?'<div class="empty">🏆 Campeón del torneo: <strong>'+esc(robot(state.champion)?.robot||'—')+'</strong></div>':seriesHTML(state.current);
+ document.getElementById('matchStatus').textContent=state.complete?'Finalizado':state.current?'En curso':'Pendiente';
+ document.getElementById('currentMatchStatus').textContent=state.complete?'Finalizado':state.current?'En curso':'Pendiente';
+ document.getElementById('currentMatchMeta').textContent=state.current?state.current.round+' · '+state.current.bracket:'Esperando inicio del torneo';
+ document.getElementById('activityFeed').innerHTML=state.activity.map(a=>'<div class="feed-item"><div class="feed-icon">↳</div><div>'+esc(a.text)+'<time>'+esc(a.time)+'</time></div></div>').join('')||'<div class="hint">Los movimientos del torneo aparecerán aquí.</div>';
+ document.getElementById('startTournament').textContent=state.started&&!state.complete?'Reiniciar torneo':state.complete?'Nuevo torneo':'Iniciar torneo';
+ document.getElementById('startTournament').classList.toggle('red',state.started&&!state.complete);
+ renderParticipants();renderQueue();renderRankTable('rankingWinners',w);renderRankTable('rankingLosers',l);
+ document.querySelectorAll('[data-win]').forEach(btn=>btn.addEventListener('click',()=>recordGame(Number(btn.dataset.win))));
+ save();
+}
+function clearForm(){document.getElementById('participantForm').reset();['checkDimensions','checkRC','checkSwitch','checkFixings','checkSensors'].forEach(id=>document.getElementById(id).checked=true);state.editing=null;document.getElementById('formTitle').textContent='Nuevo participante';document.getElementById('saveParticipant').textContent='Agregar participante';document.getElementById('cancelEdit').classList.add('hidden')}
+function resetTournamentForParticipantChange(){
+ if(state.started||state.history.length||state.current){if(!confirm('Cambiar participantes reiniciará todas las llaves y borrará los resultados. ¿Continuar?'))return false}
+ state.started=false;state.complete=false;state.champion=null;state.current=null;state.history=[];state.activity=[];state.round=1;state.stage='Inicial';state.finalReset=false;state.stats={};state.participants.forEach(p=>delete p.eliminated);log('Lista de participantes modificada; llaves reiniciadas.');return true
+}
+document.getElementById('participantForm').addEventListener('submit',e=>{
+ e.preventDefault();const p={person:document.getElementById('personName').value.trim(),robot:document.getElementById('robotName').value.trim(),weight:Number(document.getElementById('robotWeight').value),checks:['checkDimensions','checkRC','checkSwitch','checkFixings','checkSensors'].map(id=>document.getElementById(id).checked)};
+ if(!p.person||!p.robot||!Number.isFinite(p.weight)||p.weight<=0){toast('Completa los datos obligatorios.');return}
+ if(state.participants.some(x=>x.robot.toLowerCase()===p.robot.toLowerCase()&&x.id!==state.editing)){toast('Ya existe un robot con ese nombre.');return}
+ if(!resetTournamentForParticipantChange())return;
+ if(state.editing){const old=robot(state.editing);Object.assign(old,p);toast('Participante actualizado.')}else{p.id=state.nextId++;state.participants.push(p);toast(valid(p)?'Participante agregado.':'Registro guardado, pero no cumple todos los requisitos.')}
+ clearForm();save();render();
+});
+document.getElementById('cancelEdit').addEventListener('click',clearForm);
+document.getElementById('participantsTable').addEventListener('click',e=>{
+ const edit=e.target.closest('[data-edit]'),del=e.target.closest('[data-delete]');
+ if(edit){const p=robot(Number(edit.dataset.edit));if(!p)return;document.getElementById('personName').value=p.person;document.getElementById('robotName').value=p.robot;document.getElementById('robotWeight').value=p.weight;['checkDimensions','checkRC','checkSwitch','checkFixings','checkSensors'].forEach((id,i)=>document.getElementById(id).checked=p.checks[i]);state.editing=p.id;document.getElementById('formTitle').textContent='Editar participante';document.getElementById('saveParticipant').textContent='Guardar cambios';document.getElementById('cancelEdit').classList.remove('hidden');return}
+ if(del){const p=robot(Number(del.dataset.delete));if(!p)return;if(!confirm('¿Eliminar a '+p.robot+'?'))return;if(!resetTournamentForParticipantChange())return;state.participants=state.participants.filter(x=>x.id!==p.id);toast('Participante eliminado.');save();render()}
+});
+document.getElementById('loadExample').addEventListener('click',()=>{if(!resetTournamentForParticipantChange())return;state.participants=sampleParticipants.map(p=>({...p,checks:[...p.checks]}));state.nextId=9;clearForm();save();render();toast('Se cargaron ocho participantes de ejemplo.')});
+document.getElementById('startTournament').addEventListener('click',startTournament);
+document.getElementById('resetDemo').addEventListener('click',()=>{if(!confirm('¿Restablecer el prototipo a sus ocho participantes de ejemplo?'))return;state=initialState();save();clearForm();render();showPage('dashboard');toast('Demo restablecida.')});
+document.querySelectorAll('.nav-btn').forEach(btn=>btn.addEventListener('click',()=>showPage(btn.dataset.page)));
+document.querySelectorAll('[data-goto]').forEach(btn=>btn.addEventListener('click',()=>showPage(btn.dataset.goto)));
+function showPage(name){document.querySelectorAll('.page').forEach(p=>p.classList.add('hidden'));document.getElementById('page-'+name).classList.remove('hidden');document.querySelectorAll('.nav-btn').forEach(b=>b.classList.toggle('active',b.dataset.page===name));window.scrollTo({top:0,behavior:'smooth'})}
+render();
+</script>
+</body>
+</html>
