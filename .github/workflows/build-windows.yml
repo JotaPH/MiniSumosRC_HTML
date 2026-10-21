@@ -1,0 +1,55 @@
+name: Build MiniSumos RC for Windows
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Descargar repositorio
+        uses: actions/checkout@v4
+
+      - name: Preparar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Instalar dependencias
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt pyinstaller
+
+      - name: Compilar aplicación
+        shell: pwsh
+        run: |
+          python -m PyInstaller --noconfirm --clean --onedir --name MiniSumosRC --add-data "index.html;." --add-data "templates;templates" --add-data "Imagenes;Imagenes" --add-data "Audios;Audios" --add-data "BasesDeDatos;BasesDeDatos" app.py
+
+      - name: Preparar paquete portátil
+        shell: pwsh
+        run: |
+          Copy-Item "iniciar_ejecutable.bat" "dist/MiniSumosRC/" -Force
+          Copy-Item "permitir_hotspot_exe.ps1" "dist/MiniSumosRC/" -Force
+          Copy-Item "LEEME_USO.txt" "dist/MiniSumosRC/" -Force
+          Compress-Archive -Path "dist/MiniSumosRC" -DestinationPath "dist/MiniSumosRC-Windows-x64.zip" -CompressionLevel Optimal -Force
+
+      - name: Publicar artefacto descargable
+        uses: actions/upload-artifact@v4
+        with:
+          name: MiniSumosRC-Windows-x64
+          path: dist/MiniSumosRC-Windows-x64.zip
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Adjuntar paquete a GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/MiniSumosRC-Windows-x64.zip
