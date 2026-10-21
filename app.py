@@ -442,11 +442,14 @@ def configure_hotspot_firewall():
 
         print("Se necesita permiso de administrador para configurar el acceso del hotspot.")
         print("Acepta la solicitud de Windows si deseas conectar celulares a este PC.")
+        helper_ps = str(helper).replace("'", "''")
+        exe_ps = str(exe_path).replace("'", "''")
         ps_command = (
-            "$p = Start-Process -FilePath 'powershell.exe' -Verb RunAs -Wait -PassThru "
-            "-ArgumentList '-NoProfile -ExecutionPolicy Bypass -File "
-            f'""{helper}"" -ExePath ""{exe_path}""'
-            "'; exit $p.ExitCode"
+            f"$script = '{helper_ps}'; "
+            f"$exe = '{exe_ps}'; "
+            "$arg = '-NoProfile -ExecutionPolicy Bypass -File \"' + $script + '\" -ExePath \"' + $exe + '\"'; "
+            "$p = Start-Process -FilePath 'powershell.exe' -Verb RunAs -Wait -PassThru -ArgumentList $arg; "
+            "exit $p.ExitCode"
         )
         result = subprocess.run(
             ["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", ps_command],
