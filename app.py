@@ -17,17 +17,6 @@ DB_PATH = Path(_DB_ENV).expanduser().resolve() if _DB_ENV else (
     _ORIGINAL_DB if _ORIGINAL_DB.is_file() else _LOCAL_DB
 )
 
-def db_connect():
-    if not DB_PATH.is_file():
-        raise FileNotFoundError(
-            f"No se encontró la base de datos: {DB_PATH}. "
-            "Configura MINISUMOS_DB_PATH con la ruta a competencia.db."
-        )
-    connection = sqlite3.connect(str(DB_PATH), timeout=10)
-    connection.row_factory = sqlite3.Row
-    connection.execute("PRAGMA foreign_keys = ON")
-    return connection
-
 def ensure_participants_schema(connection):
     connection.execute("""
         CREATE TABLE IF NOT EXISTS participantes (
