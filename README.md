@@ -1,34 +1,25 @@
 # MiniSumosRC_HTML
 
-Primer prototipo HTML para la nueva interfaz web de MiniSumos RC.
+Prototipo de nuevas vistas **integradas sobre el HTML original del dashboard MiniSumos RC**. No es un dashboard independiente: conserva Home, el marcador, las imágenes de robots, el cronómetro, las pantallas de ganador/próxima batalla y las páginas existentes de Ataques 1 y Ataques 2 como base visual.
 
-## Vista previa
+## Archivo principal
 
-Descarga el repositorio y abre `index.html` en el navegador. GitHub muestra el código fuente del archivo, no ejecuta la vista previa interactiva directamente en la página del repositorio.
+- [index.html](./index.html): base del dashboard con las opciones nuevas añadidas al menú de la tuerca ⚙️:
+  - **ATAQUES 1** y **ATAQUES 2**: conservan el comportamiento y las rutas existentes.
+  - **PARTICIPANTES**: formulario web con piloto, robot, peso máximo de 500 g y cinco requisitos reglamentarios; permite agregar, editar y eliminar participantes.
+  - **GANADORES / PERDEDORES**: muestra ambas tablas, serie actual al mejor de tres, historial y miniclasificación de demostración.
 
-## Qué incluye
+## Qué es funcional en este preview
 
-- Panel de resumen.
-- Registro, edición y eliminación de participantes.
-- Validación de peso (mayor que 0 y máximo 500 g) y cinco requisitos reglamentarios.
-- Tablas de ganadores y perdedores.
-- Registro interactivo de resultados por batalla individual.
-- Series al mejor de tres: se detienen al conseguir dos victorias.
-- Historial de series y miniclasificaciones por porcentaje de ataques, tiempo promedio y cantidad de enfrentamientos.
-- Confirmación antes de modificar participantes cuando ya se inició el torneo.
-- Persistencia de la demostración en `localStorage` del navegador.
+Las dos nuevas pantallas tienen interacciones locales para revisar el diseño y el flujo: validación de participantes, confirmación antes de reiniciar las llaves, registro de resultados de ejemplo, movimiento entre tablas según las derrotas y una gran final con serie de reinicio.
 
-## Importante: alcance de este primer preview
+## Alcance y limitaciones
 
-Este archivo es un **prototipo de interfaz**. Los nombres, ataques y tiempos de ejemplo no son datos oficiales, y los botones de resultado simulan la recepción de un resultado. Todavía no se conecta a Flask, SQLite ni al ESP32; tampoco sincroniza varios navegadores o computadores.
+- Los resultados de las nuevas pantallas son **demostrativos** y se mantienen solo en memoria mientras la página está abierta.
+- La nueva gestión aún no está conectada con la base SQLite, el módulo de torneos Python ni el ESP32.
+- La Home original sigue esperando el backend Flask del dashboard para actualizar el estado real de la batalla y servir los recursos de `/Imagenes` y `/Audios`. Por eso, abrir solo el HTML como archivo local no sustituye ejecutar el servidor del dashboard.
+- La lógica de emparejamientos, especialmente con números impares, debe validarse con casos de 2, 3, 5, 6, 7 y 8 robots antes de usarla en competencia.
 
-Para la versión operativa, la interfaz HTML debe consumir una API del backend Python. El backend conservará la base de datos y la lógica oficial del torneo, y seguirá siendo el responsable de la comunicación serial con el ESP32. Para que los cambios aparezcan en otras pantallas en tiempo real, se puede ampliar el mecanismo de eventos/SSE que ya existe en el repositorio original.
+## Siguiente paso
 
-## Reglas que falta validar antes de cerrar la lógica
-
-1. Política exacta de emparejamiento cuando queda un número impar en una tabla.
-2. Cómo se calcula oficialmente el porcentaje de ataques y qué se hace cuando aún no hay ataques registrados.
-3. Orden preciso entre la nueva ronda de ganadores y los cruces de perdedores, para equilibrar los combates sin dejar robots esperando demasiado.
-4. Reglas de la gran final y su serie de reinicio.
-
-Este prototipo sirve para revisar primero la experiencia visual y los pasos del flujo. La lógica de programación del torneo debe validarse con casos de 2, 3, 5, 6, 7 y 8 participantes antes de usarla en competencia.
+Después de revisar y corregir el diseño y las reglas, conectar estas pantallas al backend Python existente, reutilizando SQLite para los participantes/resultados y el mecanismo de eventos del dashboard para reflejar cambios en tiempo real. La comunicación serial con el ESP32 debe continuar centralizada en Python.
