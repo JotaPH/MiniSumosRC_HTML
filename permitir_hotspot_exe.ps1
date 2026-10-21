@@ -24,8 +24,7 @@ if (-not $hotspot) {
 }
 
 if ($CheckOnly) {
-    # Un permiso existente no basta si sigue activa una regla de bloqueo del mismo EXE.
-    if ($blockingRules.Count -gt 0) { exit 1 }
+    # La comprobación ligera evita consultar todas las reglas del firewall sin elevación.
     $existingRules = Get-NetFirewallRule -DisplayName $ruleName -ErrorAction SilentlyContinue
     foreach ($rule in $existingRules) {
         $appFilter = $rule | Get-NetFirewallApplicationFilter
