@@ -8,14 +8,9 @@ import time
 from contextlib import closing
 
 BASE_DIR = Path(__file__).resolve().parent
-# En desarrollo, reutiliza la base de datos del proyecto Python si ambos repositorios
-# están al mismo nivel. MINISUMOS_DB_PATH permite indicar una ruta explícita.
-_DB_ENV = os.environ.get("MINISUMOS_DB_PATH")
-_ORIGINAL_DB = BASE_DIR.parent / "MiniSumosRC" / "BasesDeDatos" / "competencia.db"
-_LOCAL_DB = BASE_DIR / "BasesDeDatos" / "competencia.db"
-DB_PATH = Path(_DB_ENV).expanduser().resolve() if _DB_ENV else (
-    _ORIGINAL_DB if _ORIGINAL_DB.is_file() else _LOCAL_DB
-)
+# La aplicación HTML usa exclusivamente su propia base de datos.
+# No consulta ni escribe en el proyecto MiniSumosRC de Python.
+DB_PATH = BASE_DIR / "BasesDeDatos" / "competencia.db"
 
 def ensure_participants_schema(connection):
     exists = connection.execute(
