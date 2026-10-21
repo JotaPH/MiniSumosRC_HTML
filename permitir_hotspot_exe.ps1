@@ -23,17 +23,6 @@ if (-not $hotspot) {
     exit 3
 }
 
-# Detecta bloqueos que afectan a este EXE y al puerto del dashboard.
-$blockingRules = @(Get-NetFirewallRule -PolicyStore ActiveStore -Direction Inbound -Enabled True -Action Block | ForEach-Object {
-    $rule = $_
-    $programFilter = $rule | Get-NetFirewallApplicationFilter
-    if ($programFilter.Program -ieq $exePath) {
-        $portFilter = $rule | Get-NetFirewallPortFilter
-        $ports = @($portFilter.LocalPort)
-        if (($portFilter.Protocol -eq "TCP" -or $portFilter.Protocol -eq "Any" -or $portFilter.Protocol -eq 256) -and ($ports -contains "Any" -or $ports -contains "8000" -or $ports -contains 8000)) { $rule }
-    }
-})
-
 if ($CheckOnly) {
     # Un permiso existente no basta si sigue activa una regla de bloqueo del mismo EXE.
     if ($blockingRules.Count -gt 0) { exit 1 }
@@ -48,6 +37,19 @@ if ($CheckOnly) {
     }
     exit 1
 }
+
+
+# Detecta bloqueos que afectan a este EXE y al puerto del dashboard.
+$blockingRules = @(Get-NetFirewallRule -PolicyStore ActiveStore -Direction Inbound -Enabled True -Action Block | ForEach-Object {
+    $rule = $_
+    $programFilter = $rule | Get-NetFirewallApplicationFilter
+    if ($programFilter.Program -ieq $exePath) {
+        $portFilter = $rule | Get-NetFirewallPortFilter
+        $ports = @($portFilter.LocalPort)
+        if (($portFilter.Protocol -eq "TCP" -or $portFilter.Protocol -eq "Any" -or $portFilter.Protocol -eq 256) -and ($ports -contains "Any" -or $ports -contains "8000" -or $ports -contains 8000)) { $rule }
+    }
+})
+
 
 $principal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
 if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) { Write-Error "Ejecuta este script como administrador."; exit 4 }
