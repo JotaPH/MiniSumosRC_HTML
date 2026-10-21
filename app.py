@@ -2,9 +2,41 @@ from flask import Flask, jsonify, request, render_template, send_from_directory,
 from pathlib import Path
 from threading import Lock, Thread
 import json
+import os
+import sqlite3
 import time
 
 BASE_DIR = Path(__file__).resolve().parent
+# En desarrollo, reutiliza la base de datos del proyecto Python si ambos repositorios
+# están al mismo nivel. MINISUMOS_DB_PATH permite indicar una ruta explícita.
+_DB_ENV = os.environ.get("MINISUMOS_DB_PATH")
+_ORIGINAL_DB = BASE_DIR.parent / "MiniSumosRC" / "BasesDeDatos" / "competencia.db"
+_LOCAL_DB = BASE_DIR / "BasesDeDatos" / "competencia.db"
+DB_PATH = Path(_DB_ENV).expanduser().resolve() if _DB_ENV else (
+    _ORIGINAL_DB if _ORIGINAL_DB.is_file() else _LOCAL_DB
+)
+
+def db_connect():
+    if not DB_PATH.is_file():
+        raise FileNotFoundError(
+            f"No se encontró la base de datos: {DB_PATH}. "
+            "Configura MINISUMOS_DB_PATH con la ruta a competencia.db."
+        )
+    connection = sqlite3.connect(str(DB_PATH), timeout=10)
+    connection.row_factory = sqlite3.Row
+    connection.execute("PRAGMA foreign_keys = ON")
+    return connection
+
+def db_has_active_matches(connection):
+    try:
+        row = connection.execute("""
+            SELECT COUNT(*) AS total FROM enfrentamientos
+            WHERE estado IN ('En curso', 'En Curso', 'Pausada', 'Preparando', 'Completado')
+        """).fetchone()
+        return bool(row["total"])
+    except sqlite3.OperationalError:
+        return False
+
 app = Flask(__name__, template_folder=str(BASE_DIR / "templates"))
 lock = Lock()
 
@@ -78,6 +110,121 @@ def assets(filename):
     if not file_path.is_file():
         return jsonify({"error": "Recurso no encontrado"}), 404
     return send_from_directory(BASE_DIR / parts[0], parts[1])
+
+@app.get("/api/database-status")
+def database_status():
+    try:
+        with db_connect() as connection:
+            tables = {row["name"] for row in connection.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+        return jsonify({"connected": True, "database": str(DB_PATH), "tables": sorted(tables)})
+    except (OSError, sqlite3.Error) as error:
+        return jsonify({"connected": False, "error": str(error)}), 503
+
+@app.get("/api/participants")
+def list_participants():
+    try:
+        with db_connect() as connection:
+            rows = connection.execute("""
+                SELECT id, nombre, robot, peso, cumple_dimensiones, tipo_rc,
+                       interruptor_visible, sin_elementos_fijacion, sensores_tapados
+                FROM participantes ORDER BY id
+            """).fetchall()
+        return jsonify([{"id": row["id"], "pilot": row["nombre"], "robot": row["robot"],
+            "weight": row["peso"] or 0, "checks": [bool(row[key]) for key in (
+            "cumple_dimensiones", "tipo_rc", "interruptor_visible",
+            "sin_elementos_fijacion", "sensores_tapados")]} for row in rows])
+    except (OSError, sqlite3.Error) as error:
+        return jsonify({"error": f"No se pudieron consultar los participantes: {error}"}), 503
+
+def validate_participant(payload):
+    pilot = str(payload.get("pilot", payload.get("nombre", ""))).strip()[:70]
+    robot = str(payload.get("robot", "")).strip()[:40]
+    try:
+        weight = float(payload.get("weight", payload.get("peso", 0)))
+    except (TypeError, ValueError):
+        weight = 0
+    checks = payload.get("checks", [])
+    if not isinstance(checks, list):
+        checks = []
+    checks = [int(i < len(checks) and bool(checks[i])) for i in range(5)]
+    if not pilot or not robot or not (0 < weight <= 500):
+        return None, "Ingresa piloto, robot y un peso mayor que 0 y máximo de 500 g."
+    return (pilot, robot, weight, checks), None
+
+@app.post("/api/participants")
+def create_participant():
+    payload = request.get_json(silent=True) or {}
+    data, error = validate_participant(payload)
+    if error:
+        return jsonify({"error": error}), 400
+    try:
+        with db_connect() as connection:
+            if db_has_active_matches(connection):
+                return jsonify({"error": "Ya hay batallas iniciadas o completadas. Reinicia la fase desde la aplicación de competencia antes de modificar participantes."}), 409
+            duplicate = connection.execute("SELECT 1 FROM participantes WHERE lower(robot)=lower(?)", (data[1],)).fetchone()
+            if duplicate:
+                return jsonify({"error": "Ya existe un robot con ese nombre."}), 409
+            connection.execute("""
+                INSERT INTO participantes (nombre, robot, peso, cumple_dimensiones, tipo_rc, interruptor_visible, sin_elementos_fijacion, sensores_tapados)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """, (data[0], data[1], data[2], *data[3]))
+            row = connection.execute("SELECT last_insert_rowid() AS id").fetchone()
+        return jsonify({"id": row["id"], "message": "Participante guardado en SQLite."}), 201
+    except (OSError, sqlite3.Error) as error:
+        return jsonify({"error": f"No se pudo guardar el participante: {error}"}), 503
+
+@app.put("/api/participants/<int:participant_id>")
+def update_participant(participant_id):
+    payload = request.get_json(silent=True) or {}
+    data, error = validate_participant(payload)
+    if error:
+        return jsonify({"error": error}), 400
+    try:
+        with db_connect() as connection:
+            if db_has_active_matches(connection):
+                return jsonify({"error": "Ya hay batallas iniciadas o completadas. Reinicia la fase desde la aplicación de competencia antes de modificar participantes."}), 409
+            duplicate = connection.execute("SELECT 1 FROM participantes WHERE lower(robot)=lower(?) AND id<>?", (data[1], participant_id)).fetchone()
+            if duplicate:
+                return jsonify({"error": "Ya existe un robot con ese nombre."}), 409
+            cursor = connection.execute("""
+                UPDATE participantes SET nombre=?, robot=?, peso=?, cumple_dimensiones=?, tipo_rc=?, interruptor_visible=?, sin_elementos_fijacion=?, sensores_tapados=? WHERE id=?
+            """, (data[0], data[1], data[2], *data[3], participant_id))
+            if cursor.rowcount == 0:
+                return jsonify({"error": "El participante ya no existe."}), 404
+        return jsonify({"message": "Participante actualizado en SQLite."})
+    except (OSError, sqlite3.Error) as error:
+        return jsonify({"error": f"No se pudo actualizar el participante: {error}"}), 503
+
+@app.delete("/api/participants/<int:participant_id>")
+def delete_participant(participant_id):
+    try:
+        with db_connect() as connection:
+            if db_has_active_matches(connection):
+                return jsonify({"error": "Ya hay batallas iniciadas o completadas. Reinicia la fase desde la aplicación de competencia antes de modificar participantes."}), 409
+            cursor = connection.execute("DELETE FROM participantes WHERE id=?", (participant_id,))
+            if cursor.rowcount == 0:
+                return jsonify({"error": "El participante ya no existe."}), 404
+        return jsonify({"message": "Participante eliminado de SQLite."})
+    except (OSError, sqlite3.Error) as error:
+        return jsonify({"error": f"No se pudo eliminar el participante: {error}"}), 503
+
+@app.get("/api/matches")
+def list_matches():
+    try:
+        with db_connect() as connection:
+            rows = connection.execute("""
+                SELECT e.id, e.etapa, COALESCE(g.nombre, '') AS grupo, e.ronda,
+                       p1.nombre AS piloto1, p1.robot AS robot1, p2.nombre AS piloto2, p2.robot AS robot2,
+                       e.estado, COALESCE(e.tiempo, '0:00:00') AS tiempo,
+                       COALESCE(e.ataques1, 0) AS ataques1, COALESCE(e.ataques2, 0) AS ataques2,
+                       e.ganador, COALESCE(e.criterio_ganador, '') AS motivo
+                FROM enfrentamientos e LEFT JOIN grupos g ON g.id=e.grupo_id
+                LEFT JOIN participantes p1 ON p1.id=e.participante1 LEFT JOIN participantes p2 ON p2.id=e.participante2
+                ORDER BY e.id
+            """).fetchall()
+        return jsonify([dict(row) for row in rows])
+    except (OSError, sqlite3.Error) as error:
+        return jsonify({"error": f"No se pudieron consultar las batallas: {error}"}), 503
 
 @app.get("/api/state")
 def get_state():
