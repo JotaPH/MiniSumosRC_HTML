@@ -39,7 +39,7 @@ if ($CheckOnly) {
 
 
 # Detecta bloqueos que afectan a este EXE y al puerto del dashboard.
-$blockingRules = @(Get-NetFirewallRule -PolicyStore ActiveStore -Direction Inbound -Enabled True -Action Block | ForEach-Object {
+$blockingRules = @(Get-NetFirewallRule -PolicyStore ActiveStore -Direction Inbound -Enabled True -Action Block -ErrorAction SilentlyContinue | ForEach-Object {
     $rule = $_
     $programFilter = $rule | Get-NetFirewallApplicationFilter
     if ($programFilter.Program -ieq $exePath) {
@@ -64,7 +64,7 @@ if ($blockingRules.Count -gt 0) {
     Write-Host "Bloqueos específicos deshabilitados." -ForegroundColor Green
 }
 
-Get-NetFirewallRule -DisplayName $ruleName -ErrorAction SilentlyContinue | Remove-NetFirewallRule
+Get-NetFirewallRule -DisplayName $ruleName -ErrorAction SilentlyContinue | Remove-NetFirewallRule -ErrorAction SilentlyContinue
 $ruleParameters = @{
     DisplayName = $ruleName
     Description = "Permite el dashboard MiniSumos RC solo por la interfaz del hotspot, en TCP 8000."
