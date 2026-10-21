@@ -158,7 +158,7 @@ def continue_battle():
     with lock:
         if state["phase"] != "paused":
             return jsonify({"error": "Solo se puede continuar una batalla pausada"}), 409
-        state["started_at"] = time.time()
+        state["started_at"] = time.time() - max(0, float(state["elapsed_seconds"]))
         state["phase"] = "running"
         state["status"] = "BATALLA EN CURSO"
         return jsonify(snapshot())
