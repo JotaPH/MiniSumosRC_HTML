@@ -8,6 +8,8 @@ import subprocess
 import sys
 import time
 import webbrowser
+import urllib.error
+import urllib.request
 from contextlib import closing
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -494,16 +496,83 @@ def configure_hotspot_firewall():
         print(f"AVISO: no se pudo comprobar/configurar el firewall: {error}")
         print("El dashboard local seguirá iniciando.")
 
-def open_local_dashboard():
-    time.sleep(1.5)
-    webbrowser.open("http://127.0.0.1:8000")
+def is_running_as_admin():
+    if os.name != "nt":
+        return True
+    try:
+        check = subprocess.run(
+            ["powershell.exe", "-NoProfile", "-Command",
+             "$p=New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent()); "
+             "if($p.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)){exit 0}else{exit 1}"],
+            capture_output=True, timeout=15
+        )
+        return check.returncode == 0
+    except (OSError, subprocess.SubprocessError):
+        return False
+
+
+def relaunch_as_admin_if_needed():
+    """Relanza el EXE elevado; el proceso original termina para evitar dos servidores."""
+    if not getattr(sys, "frozen", False) or os.name != "nt" or is_running_as_admin():
+        return
+    import ctypes
+    result = ctypes.windll.shell32.ShellExecuteW(
+        None, "runas", str(Path(sys.executable).resolve()), None,
+        str(Path(sys.executable).resolve().parent), 1
+    )
+    if result <= 32:
+        print("No se concedieron permisos de administrador. MiniSumos RC no se iniciará.")
+        input("Presiona Enter para cerrar...")
+        raise SystemExit(1)
+    raise SystemExit(0)
+
+
+def run_startup_helper():
+    """Ejecuta el BAT en modo de configuración, espera a que termine y luego continúa."""
+    if not getattr(sys, "frozen", False):
+        return
+    exe_dir = Path(sys.executable).resolve().parent
+    launcher = exe_dir / "iniciar_ejecutable.bat"
+    if not launcher.is_file():
+        print("AVISO: no se encontró iniciar_ejecutable.bat; se continuará sin ese paso.")
+        return
+    print("Preparando acceso del hotspot...")
+    try:
+        result = subprocess.run(
+            ["cmd.exe", "/d", "/c", str(launcher), "--config-only"],
+            cwd=str(exe_dir), timeout=180
+        )
+        if result.returncode == 0:
+            print("Configuración inicial finalizada.")
+        else:
+            print(f"AVISO: el auxiliar terminó con código {result.returncode}.")
+            print("Se intentará iniciar el dashboard de todas formas.")
+    except (OSError, subprocess.SubprocessError) as error:
+        print(f"AVISO: no se pudo ejecutar iniciar_ejecutable.bat: {error}")
+
+
+def open_local_dashboard_when_ready():
+    """Abre el navegador únicamente después de comprobar que Flask responde."""
+    url = "http://127.0.0.1:8000/api/state"
+    deadline = time.monotonic() + 60
+    while time.monotonic() < deadline:
+        try:
+            with urllib.request.urlopen(url, timeout=1.5) as response:
+                if response.status == 200:
+                    webbrowser.open("http://127.0.0.1:8000")
+                    return
+        except (OSError, urllib.error.URLError):
+            time.sleep(0.4)
+    print("El servidor no respondió en 60 segundos; abre manualmente http://127.0.0.1:8000")
 
 
 if __name__ == "__main__":
-    # El ejecutable portátil prepara el firewall del hotspot con UAC solo cuando hace falta.
-    configure_hotspot_firewall()
+    # El EXE solicita elevación antes de tocar el firewall o iniciar el servidor.
+    relaunch_as_admin_if_needed()
+    # Ejecuta el lanzador auxiliar y espera a que se cierre antes de continuar.
+    run_startup_helper()
     print("MiniSumos RC local:     http://127.0.0.1:8000")
-    print("MiniSumos RC hotspot:   se muestra la IP detectada por el auxiliar de firewall.")
+    print("MiniSumos RC hotspot:   consulta la IP de la interfaz hotspot en Windows.")
     if getattr(sys, "frozen", False):
-        Thread(target=open_local_dashboard, daemon=True).start()
+        Thread(target=open_local_dashboard_when_ready, daemon=True).start()
     app.run(host="0.0.0.0", port=8000, debug=False, threaded=True)
