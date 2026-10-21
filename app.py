@@ -28,15 +28,77 @@ def db_connect():
     connection.execute("PRAGMA foreign_keys = ON")
     return connection
 
-def db_has_active_matches(connection):
-    try:
-        row = connection.execute("""
-            SELECT COUNT(*) AS total FROM enfrentamientos
-            WHERE estado IN ('En curso', 'En Curso', 'Pausada', 'Preparando', 'Completado')
-        """).fetchone()
-        return bool(row["total"])
-    except sqlite3.OperationalError:
+def ensure_participants_schema(connection):
+    connection.execute("""
+        CREATE TABLE IF NOT EXISTS participantes (
+            id INTEGER PRIMARY KEY,
+            nombre TEXT NOT NULL,
+            robot TEXT NOT NULL,
+            peso REAL DEFAULT 0,
+            cumple_dimensiones INTEGER DEFAULT 1,
+            tipo_rc INTEGER DEFAULT 1,
+            interruptor_visible INTEGER DEFAULT 1,
+            sin_elementos_fijacion INTEGER DEFAULT 1,
+            sensores_tapados INTEGER DEFAULT 1
+        )
+    """)
+    columns = {row["name"] for row in connection.execute("PRAGMA table_info(participantes)")}
+    migrations = {
+        "peso": "REAL DEFAULT 0",
+        "cumple_dimensiones": "INTEGER DEFAULT 1",
+        "tipo_rc": "INTEGER DEFAULT 1",
+        "interruptor_visible": "INTEGER DEFAULT 1",
+        "sin_elementos_fijacion": "INTEGER DEFAULT 1",
+        "sensores_tapados": "INTEGER DEFAULT 1",
+    }
+    for name, definition in migrations.items():
+        if name not in columns:
+            connection.execute(f"ALTER TABLE participantes ADD COLUMN {name} {definition}")
+    connection.commit()
+
+def db_connect():
+    if not DB_PATH.is_file():
+        raise FileNotFoundError(
+            f"No se encontró la base de datos: {DB_PATH}. "
+            "Configura MINISUMOS_DB_PATH con la ruta exacta a competencia.db."
+        )
+    connection = sqlite3.connect(str(DB_PATH), timeout=10)
+    connection.row_factory = sqlite3.Row
+    connection.execute("PRAGMA foreign_keys = ON")
+    ensure_participants_schema(connection)
+    return connection
+
+def table_exists(connection, table_name):
+    return connection.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?",
+        (table_name,)
+    ).fetchone() is not None
+
+def competition_has_data(connection):
+    for table in ("enfrentamientos", "historial_batallas", "clasificacion",
+                  "llaves", "grupo_participantes", "grupos"):
+        if table_exists(connection, table):
+            count = connection.execute('SELECT COUNT(*) FROM "' + table + '"').fetchone()[0]
+            if count:
+                return True
+    return False
+
+def clear_competition_data(connection):
+    for table in ("enfrentamientos", "historial_batallas", "clasificacion",
+                  "llaves", "grupo_participantes", "grupos"):
+        if table_exists(connection, table):
+            connection.execute('DELETE FROM "' + table + '"')
+    if table_exists(connection, "sqlite_sequence"):
+        connection.execute(
+            "DELETE FROM sqlite_sequence WHERE name IN ('enfrentamientos', 'historial_batallas')"
+        )
+
+def authorize_participant_change(connection, payload):
+    if competition_has_data(connection) and not payload.get("reset_competition"):
         return False
+    if payload.get("reset_competition"):
+        clear_competition_data(connection)
+    return True
 
 app = Flask(__name__, template_folder=str(BASE_DIR / "templates"))
 lock = Lock()
@@ -115,25 +177,30 @@ def assets(filename):
 @app.get("/api/database-status")
 def database_status():
     try:
-        with closing(db_connect()) as connection, connection:
-            tables = {row["name"] for row in connection.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+        with closing(db_connect()) as connection:
+            tables = {row["name"] for row in connection.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'"
+            )}
         return jsonify({"connected": True, "database": str(DB_PATH), "tables": sorted(tables)})
     except (OSError, sqlite3.Error) as error:
-        return jsonify({"connected": False, "error": str(error)}), 503
+        return jsonify({"connected": False, "database": str(DB_PATH), "error": str(error)}), 503
 
 @app.get("/api/participants")
 def list_participants():
     try:
-        with closing(db_connect()) as connection, connection:
+        with closing(db_connect()) as connection:
             rows = connection.execute("""
                 SELECT id, nombre, robot, peso, cumple_dimensiones, tipo_rc,
                        interruptor_visible, sin_elementos_fijacion, sensores_tapados
                 FROM participantes ORDER BY id
             """).fetchall()
-        return jsonify([{"id": row["id"], "pilot": row["nombre"], "robot": row["robot"],
-            "weight": row["peso"] or 0, "checks": [bool(row[key]) for key in (
-            "cumple_dimensiones", "tipo_rc", "interruptor_visible",
-            "sin_elementos_fijacion", "sensores_tapados")]} for row in rows])
+        return jsonify([{
+            "id": row["id"], "pilot": row["nombre"], "robot": row["robot"],
+            "weight": row["peso"] or 0,
+            "checks": [bool(row[key]) for key in (
+                "cumple_dimensiones", "tipo_rc", "interruptor_visible",
+                "sin_elementos_fijacion", "sensores_tapados")]
+        } for row in rows])
     except (OSError, sqlite3.Error) as error:
         return jsonify({"error": f"No se pudieron consultar los participantes: {error}"}), 503
 
@@ -160,13 +227,20 @@ def create_participant():
         return jsonify({"error": error}), 400
     try:
         with closing(db_connect()) as connection, connection:
-            if db_has_active_matches(connection):
-                return jsonify({"error": "Ya hay batallas iniciadas o completadas. Reinicia la fase desde la aplicación de competencia antes de modificar participantes."}), 409
-            duplicate = connection.execute("SELECT 1 FROM participantes WHERE lower(robot)=lower(?)", (data[1],)).fetchone()
+            if not authorize_participant_change(connection, payload):
+                return jsonify({
+                    "error": "Hay datos de una competencia anterior. ¿Deseas limpiar el calendario y sus resultados para modificar participantes?",
+                    "requires_confirmation": True
+                }), 409
+            duplicate = connection.execute(
+                "SELECT 1 FROM participantes WHERE lower(robot)=lower(?)", (data[1],)
+            ).fetchone()
             if duplicate:
                 return jsonify({"error": "Ya existe un robot con ese nombre."}), 409
             connection.execute("""
-                INSERT INTO participantes (nombre, robot, peso, cumple_dimensiones, tipo_rc, interruptor_visible, sin_elementos_fijacion, sensores_tapados)
+                INSERT INTO participantes
+                (nombre, robot, peso, cumple_dimensiones, tipo_rc, interruptor_visible,
+                 sin_elementos_fijacion, sensores_tapados)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """, (data[0], data[1], data[2], *data[3]))
             row = connection.execute("SELECT last_insert_rowid() AS id").fetchone()
@@ -182,13 +256,21 @@ def update_participant(participant_id):
         return jsonify({"error": error}), 400
     try:
         with closing(db_connect()) as connection, connection:
-            if db_has_active_matches(connection):
-                return jsonify({"error": "Ya hay batallas iniciadas o completadas. Reinicia la fase desde la aplicación de competencia antes de modificar participantes."}), 409
-            duplicate = connection.execute("SELECT 1 FROM participantes WHERE lower(robot)=lower(?) AND id<>?", (data[1], participant_id)).fetchone()
+            if not authorize_participant_change(connection, payload):
+                return jsonify({
+                    "error": "Hay datos de una competencia anterior. ¿Deseas limpiar el calendario y sus resultados para modificar participantes?",
+                    "requires_confirmation": True
+                }), 409
+            duplicate = connection.execute(
+                "SELECT 1 FROM participantes WHERE lower(robot)=lower(?) AND id<>?",
+                (data[1], participant_id)
+            ).fetchone()
             if duplicate:
                 return jsonify({"error": "Ya existe un robot con ese nombre."}), 409
             cursor = connection.execute("""
-                UPDATE participantes SET nombre=?, robot=?, peso=?, cumple_dimensiones=?, tipo_rc=?, interruptor_visible=?, sin_elementos_fijacion=?, sensores_tapados=? WHERE id=?
+                UPDATE participantes SET nombre=?, robot=?, peso=?, cumple_dimensiones=?,
+                    tipo_rc=?, interruptor_visible=?, sin_elementos_fijacion=?, sensores_tapados=?
+                WHERE id=?
             """, (data[0], data[1], data[2], *data[3], participant_id))
             if cursor.rowcount == 0:
                 return jsonify({"error": "El participante ya no existe."}), 404
@@ -198,10 +280,14 @@ def update_participant(participant_id):
 
 @app.delete("/api/participants/<int:participant_id>")
 def delete_participant(participant_id):
+    payload = request.get_json(silent=True) or {}
     try:
         with closing(db_connect()) as connection, connection:
-            if db_has_active_matches(connection):
-                return jsonify({"error": "Ya hay batallas iniciadas o completadas. Reinicia la fase desde la aplicación de competencia antes de modificar participantes."}), 409
+            if not authorize_participant_change(connection, payload):
+                return jsonify({
+                    "error": "Hay datos de una competencia anterior. ¿Deseas limpiar el calendario y sus resultados para modificar participantes?",
+                    "requires_confirmation": True
+                }), 409
             cursor = connection.execute("DELETE FROM participantes WHERE id=?", (participant_id,))
             if cursor.rowcount == 0:
                 return jsonify({"error": "El participante ya no existe."}), 404
