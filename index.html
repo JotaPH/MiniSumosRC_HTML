@@ -325,6 +325,45 @@ body.view-subpage{overflow:auto!important}
  #managementViews #participantsView .mgmt-table th:nth-child(4),#managementViews #participantsView .mgmt-table td:nth-child(4){width:20%}
  #managementViews #participantsView .mgmt-table th:nth-child(5),#managementViews #participantsView .mgmt-table td:nth-child(5){width:28%}
 }
+
+
+/* Ajuste definitivo de la tabla de participantes: ID mínimo, nombre con espacio restante */
+#managementViews #participantsView .mgmt-table-wrap{
+  width:100%!important;max-width:none!important;overflow-x:auto!important;
+}
+#managementViews #participantsView table.mgmt-table{
+  width:100%!important;min-width:0!important;table-layout:fixed!important;border-collapse:collapse;
+}
+#managementViews #participantsView .mgmt-table th,
+#managementViews #participantsView .mgmt-table td{
+  box-sizing:border-box!important;vertical-align:middle;text-align:center;
+}
+#managementViews #participantsView .mgmt-table th:first-child,
+#managementViews #participantsView .mgmt-table td:first-child{
+  width:38px!important;min-width:38px!important;max-width:38px!important;
+  padding-left:2px!important;padding-right:2px!important;text-align:center!important;
+}
+#managementViews #participantsView .mgmt-table th:nth-child(2){width:auto!important;text-align:center!important}
+#managementViews #participantsView .mgmt-table td:nth-child(2){width:auto!important;text-align:left!important;overflow-wrap:anywhere}
+#managementViews #participantsView .mgmt-table th:nth-child(3),
+#managementViews #participantsView .mgmt-table td:nth-child(3){width:88px!important}
+#managementViews #participantsView .mgmt-table th:nth-child(4),
+#managementViews #participantsView .mgmt-table td:nth-child(4){width:132px!important}
+#managementViews #participantsView .mgmt-table th:nth-child(5),
+#managementViews #participantsView .mgmt-table td:nth-child(5){width:174px!important}
+#managementViews #participantsView .mgmt-table td:nth-child(5) .mgmt-row-actions{justify-content:center;flex-wrap:nowrap}
+@media(max-width:650px){
+  #managementViews #participantsView .mgmt-table{min-width:500px!important}
+  #managementViews #participantsView .mgmt-table th:first-child,
+  #managementViews #participantsView .mgmt-table td:first-child{width:34px!important;min-width:34px!important;max-width:34px!important}
+  #managementViews #participantsView .mgmt-table th:nth-child(3),
+  #managementViews #participantsView .mgmt-table td:nth-child(3){width:70px!important}
+  #managementViews #participantsView .mgmt-table th:nth-child(4),
+  #managementViews #participantsView .mgmt-table td:nth-child(4){width:105px!important}
+  #managementViews #participantsView .mgmt-table th:nth-child(5),
+  #managementViews #participantsView .mgmt-table td:nth-child(5){width:150px!important}
+  #managementViews #participantsView .mgmt-table td:nth-child(2){grid-column:auto!important}
+}
 </style>
 </head>
 <body>
@@ -470,7 +509,7 @@ $('mgmtParticipantForm').addEventListener('submit',async e=>{
  if(!robot){showMgmtError('Completa Robot.','Dato faltante');$('mgmtRobot').focus();return}
  if(!rawWeight){showMgmtError('Completa Peso.','Dato faltante');$('mgmtWeight').focus();return}
  if(rawWeight.includes(',')){showMgmtError('Se debe usar (.) decimal.','Formato de peso incorrecto');$('mgmtWeight').focus();return}
- if(!/^\\d+(?:\\.\\d)?$/.test(rawWeight)){showMgmtError('El peso debe ser un número. Para decimales, usa punto (.). Ejemplo: 485.5','Formato de peso incorrecto');$('mgmtWeight').focus();return}
+ if(!/^\d+(?:\.\d+)?$/.test(rawWeight)){showMgmtError('El peso debe ser un número. Para decimales, usa punto (.). Ejemplo: 485.5','Formato de peso incorrecto');$('mgmtWeight').focus();return}
  const p={pilot,robot,weight:Number(rawWeight),checks:['mgmtC1','mgmtC2','mgmtC3','mgmtC4','mgmtC5'].map(id=>$(id).checked)};
  if(!Number.isFinite(p.weight)||p.weight<=0){showMgmtError('Ingresa un peso mayor que 0 gramos.','Peso incorrecto');$('mgmtWeight').focus();return}
  if(mgmt.participants.some(x=>x.robot.toLowerCase()===p.robot.toLowerCase()&&x.id!==mgmt.editing)){showMgmtError('Ya existe un robot con ese nombre.','Robot duplicado');return}
