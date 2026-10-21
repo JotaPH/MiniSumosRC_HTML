@@ -35,3 +35,14 @@ Las dos nuevas pantallas tienen interacciones locales para revisar el diseño y 
 ## Siguiente paso
 
 Después de revisar y corregir el diseño y las reglas, conectar estas pantallas al backend Python existente, reutilizando SQLite para los participantes/resultados y el mecanismo de eventos del dashboard para reflejar cambios en tiempo real. La comunicación serial con el ESP32 debe continuar centralizada en Python.
+
+## Base de datos SQLite
+
+La interfaz web consulta y modifica los participantes mediante la API Flask y usa el esquema existente de `BasesDeDatos/competencia.db`.
+
+- Si las carpetas `MiniSumosRC` y `MiniSumosRC_HTML` están al mismo nivel, la web intenta usar primero `MiniSumosRC/BasesDeDatos/competencia.db`.
+- Si no encuentra esa ruta, usa la copia incluida en `MiniSumosRC_HTML/BasesDeDatos/competencia.db`.
+- Para definir la ruta exacta, configura la variable de entorno `MINISUMOS_DB_PATH` antes de iniciar `app.py`.
+- `GET /api/database-status` informa si la conexión está disponible; `GET /api/participants` consulta los participantes y `GET /api/matches` consulta los enfrentamientos guardados.
+
+Por seguridad, el formulario web bloquea cambios en participantes si encuentra enfrentamientos iniciados o completados. La interfaz de doble eliminación y los controles de batalla todavía requieren conectar sus acciones de resultados a SQLite; no deben considerarse persistentes hasta completar esa integración.
