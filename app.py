@@ -199,8 +199,8 @@ def validate_participant(payload):
     if not isinstance(checks, list):
         checks = []
     checks = [int(i < len(checks) and bool(checks[i])) for i in range(5)]
-    if not pilot or not robot or not (0 < weight <= 500):
-        return None, "Ingresa piloto, robot y un peso mayor que 0 y máximo de 500 g."
+    if not pilot or not robot or not (weight > 0):
+        return None, "Ingresa nombre, robot y un peso mayor que 0 g."
     return (pilot, robot, weight, checks), None
 
 @app.post("/api/participants")
