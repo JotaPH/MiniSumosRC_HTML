@@ -414,5 +414,8 @@ def ui_complete():
         return jsonify(snapshot())
 
 if __name__ == "__main__":
-    print("MiniSumos RC disponible en http://127.0.0.1:8000")
+    # Escucha en las interfaces de red del PC para permitir acceso desde el hotspot.
+    # El script permitir_hotspot.ps1 abre el puerto 8000 únicamente para la subred del hotspot.
+    print("MiniSumos RC local:     http://127.0.0.1:8000")
+    print("MiniSumos RC hotspot:   http://192.168.137.1:8000")
     app.run(host="0.0.0.0", port=8000, debug=False, threaded=True)
