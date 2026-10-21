@@ -45,6 +45,11 @@ def stop_clock():
 
 @app.get("/")
 def home():
+    # Conserva como inicio el HTML que incluye los paneles nuevos de gestión.
+    return send_file(BASE_DIR / "index.html")
+
+@app.get("/classic-dashboard")
+def classic_dashboard():
     return render_template("index.html")
 
 @app.get("/management-demo")
