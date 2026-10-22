@@ -59,6 +59,14 @@
     "#tournamentDebug .td-grid-slot:last-child{border-bottom:0}",
     "#tournamentDebug .td-grid-slot.filled{color:#fff;font-weight:700}",
     "#tournamentDebug .td-grid-winner{background:#123b31;color:#8ff0ae!important;font-weight:900}",
+    "#tournamentDebug .td-bracket-sheet-wrap{width:100%;overflow-x:auto;padding:8px 0 14px}",
+    "#tournamentDebug table.td-bracket-sheet{border-collapse:collapse;table-layout:fixed;width:100%;min-width:520px}",
+    "#tournamentDebug .td-bracket-sheet th{height:34px;text-align:center;color:#70eaff;font-size:12px;font-weight:800;border:1px solid #31516c;background:#071323;position:sticky;top:0}",
+    "#tournamentDebug .td-bracket-sheet td{height:28px;min-width:90px;width:1%;padding:2px 4px;border:1px solid rgba(49,81,108,.3);vertical-align:middle}",
+    "#tournamentDebug .td-bracket-sheet td:empty{background:transparent}",
+    "#tournamentDebug .td-sheet-match{border:1px solid #31516c;border-radius:5px;background:#0a1b2d;overflow:hidden;min-width:0}",
+    "#tournamentDebug .td-sheet-match .td-grid-slot{min-height:24px;padding:4px 5px;font-size:11px;border-bottom:1px solid #20384d}",
+    "#tournamentDebug .td-sheet-match .td-grid-slot:last-child{border-bottom:0}",
     "#tournamentDebug .td-empty{color:#92a7bb;padding:12px 0}",
     "#tournamentDebug .td-history{max-height:320px;overflow:auto}",
     "#tournamentDebug .td-history-row{display:grid;grid-template-columns:44px minmax(0,1fr) auto;align-items:center;gap:10px;border-bottom:1px solid #20384d;padding:10px 0;font-size:15px}",
@@ -275,21 +283,25 @@
       stageNo++;
     }
 
-    // Tabla lógica: cada ronda es una columna y cada combate se centra en su bloque de filas.
-    const columns = stages.map((stage, r) => {
-      const step = 2 ** (r + 2);
-      const cards = stage.matches.map((m, i) => {
-        // Centra cada combate en el bloque de filas que alimenta esa ronda.
-        const rowStart = i * step + 2 ** (r + 1);
+    // Tabla literal: columnas por ronda y filas fijas, como una hoja de cálculo.
+    const tableRows = Array.from({length:capacity * 2 - 1},()=>Array(stages.length).fill(''));
+    stages.forEach((stage, r) => {
+      const block = 2 ** (r + 1);
+      stage.matches.forEach((m, i) => {
+        const startRow = i * block + Math.floor(block / 2);
         const winnerA = !!m.winner && m.winner === m.a;
         const winnerB = !!m.winner && m.winner === m.b;
-        return '<div class="td-grid-match" style="grid-row:' + rowStart + ';grid-row-end:span 2">' +
+        const cell = '<div class="td-sheet-match">' +
           node(m.a, winnerA) + node(m.b, winnerB) + '</div>';
-      }).join('');
-      return '<div class="td-grid-round" style="grid-template-rows:repeat(' + rows + ',minmax(24px,auto))">' +
-        '<div class="td-grid-title">' + stage.title + '</div>' + cards + '</div>';
-    }).join('');
-    return '<div class="td-bracket-grid" style="--bracket-rows:' + rows + '" aria-label="Llave de ganadores">' + columns + '</div>';
+        if (startRow >= 0 && startRow < tableRows.length) tableRows[startRow][r] = cell;
+      });
+    });
+    const head = '<thead><tr>' + stages.map(stage =>
+      '<th scope="col">' + stage.title + '</th>').join('') + '</tr></thead>';
+    const body = '<tbody>' + tableRows.map(row =>
+      '<tr>' + row.map(cell => '<td>' + (cell || '&nbsp;') + '</td>').join('') + '</tr>'
+    ).join('') + '</tbody>';
+    return '<div class="td-bracket-sheet-wrap"><table class="td-bracket-sheet" aria-label="Llave de ganadores">' + head + body + '</table></div>';
   }
 
   function render() {
