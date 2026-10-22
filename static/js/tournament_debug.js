@@ -116,16 +116,33 @@
     return value;
   }
 
+  function calculateBracket(n) {
+    let rounds = 0;
+    while (2 ** rounds < n) rounds += 1;
+    const capacity = 2 ** rounds;
+    const byes = capacity - n;
+    const initialMatches = (n - byes) / 2;
+    return {rounds, capacity, byes, initialMatches};
+  }
+
   function preparePairs(ids, direction, byeSide, initial) {
     const sorted = [...new Set(ids)].map(player).filter(Boolean).sort((a,b)=>a.index-b.index);
     let pool = sorted.slice();
     let byeIds = [];
-    if (pool.length % 2) {
-      let bye;
-      if (initial || byeSide === "high") bye = pool.pop();
-      else bye = pool.shift();
+
+    // En la ronda inicial, los índices más bajos combaten y los últimos reciben bye.
+    // Ejemplo: 10 participantes -> capacidad 16, 6 byes y solo 2 combates.
+    if (initial) {
+      const bracket = calculateBracket(pool.length);
+      const activeCount = bracket.initialMatches * 2;
+      const active = pool.slice(0, activeCount);
+      byeIds = pool.slice(activeCount).map(p => p.id);
+      pool = active;
+    } else if (pool.length % 2) {
+      const bye = byeSide === "high" ? pool.pop() : pool.shift();
       if (bye) byeIds = [bye.id];
     }
+
     if (!initial && direction === "desc") pool.reverse();
     const pairs = [];
     for (let i=0; i+1<pool.length; i+=2) pairs.push([pool[i].id,pool[i+1].id]);
@@ -301,7 +318,14 @@
   }
 
   function freshState() {
-    const players = participants.map((p,i)=>({id:p.id,pilot:p.pilot,robot:p.robot,index:i+1}));
+    // Aleatorizar el orden una sola vez al crear el torneo; los índices más altos
+    // quedan al final y son quienes reciben los byes de la primera ronda.
+    const shuffled = participants.slice();
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    const players = shuffled.map((p,i)=>({id:p.id,pilot:p.pilot,robot:p.robot,index:i+1}));
     return {
       started:false,phase:"ready",players:players,winners:players.map(p=>p.id),losers:[],eliminated:[],
       round:null,current:null,wRound:0,lRound:0,roundType:"W",direction:"asc",byeSide:"high",
@@ -354,8 +378,13 @@
       tournament.logs = [];
       tournament.dropsByW = {};
       separator("INICIO DEL TORNEO · DOBLE ELIMINACIÓN");
+      const bracket = calculateBracket(tournament.players.length);
       logLine("Participantes válidos: " + tournament.players.length, "system");
-      logLine("Índices iniciales asignados en orden: 1.000, 2.000, 3.000...", "system");
+      logLine("Orden aleatorio asignado al inicio; índices del 1.000 al " + fmtIndex(tournament.players.length) + ".", "system");
+      logLine("Rondas calculadas de Winners: " + bracket.rounds, "system");
+      logLine("Capacidad de llave: " + bracket.capacity + " · Byes iniciales: " + bracket.byes, "system");
+      logLine("Combates iniciales: " + bracket.initialMatches, "system");
+      logLine("Los índices más altos reciben bye; los primeros del orden aleatorio disputan la ronda inicial.", "system");
       logLine("Criterio: promedio de índices con tres decimales; colisión = restar 0.010.");
       beginRound("W", true);
       await persist();
