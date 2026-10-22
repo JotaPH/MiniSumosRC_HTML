@@ -79,7 +79,7 @@ def _prepare_stage(state, stage, pairs, bye_ids=None):
     state["stage"] = stage
     state["queue"] = [{"a": a, "b": b, "keep_side": side, "stage": stage} for a, b, side in pairs]
     state["round"] = {
-        "type": "W" if stage.startswith("W") or stage == "mainW" else "L",
+        "type": "W" if stage in ("initialW1", "initialW2", "mainW") else "L",
         "number": state["wRound"] if stage in ("initialW1", "initialW2", "mainW") else state["lRound"],
         "pairs": [[m["a"], m["b"]] for m in state["queue"]],
         "position": 0, "byeIds": bye_ids or [],
@@ -229,6 +229,7 @@ def record_winner(state, winner_slot_id):
         if stage == "final" and winner["robot_id"] == _slot(state, state["winners"][0])["robot_id"]:
             state["champion"] = winner["robot_id"]
             state["winners"], state["losers"] = [state["winners"][0]], []
+            state["eliminated"].append(loser["robot_id"])
             state["phase"], state["stage"], state["current"] = "finished", "done", None
             state["logs"].append({"message": "Campeón: " + robot(winner["robot_id"]), "kind": "system"})
             return state
@@ -240,6 +241,7 @@ def record_winner(state, winner_slot_id):
             state["logs"].append({"message": "Gana Lossers la primera final; se jugará la revancha.", "kind": "system"})
             return state
         state["champion"] = winner["robot_id"]
+        state["eliminated"].append(loser["robot_id"])
         final_slot = _make_slot(state, number, "L", winner["robot_id"], True)
         state["winners"], state["losers"] = [], [final_slot]
         state["phase"], state["stage"], state["current"] = "finished", "done", None
