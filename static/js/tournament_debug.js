@@ -34,6 +34,9 @@
     "#tournamentDebug .td-index{grid-column:1;grid-row:1 / span 2;min-width:0;text-align:center;font:700 13px ui-monospace,monospace;color:#ffe66d}",
     "#tournamentDebug .td-entry strong{grid-column:2;display:block;font-size:20px;line-height:1.2;overflow-wrap:anywhere;text-align:center}",
     "#tournamentDebug .td-entry .td-muted{grid-column:2;display:block;text-align:center;font-size:13px}",
+    "#tournamentDebug .td-entry-header{background:transparent;border-bottom:1px solid #31516c;border-radius:0;padding:5px 10px 9px;margin-top:0}",
+    "#tournamentDebug .td-entry-header strong:first-child{grid-column:1;grid-row:1;font-size:12px;color:#a8bbcf;text-align:center}",
+    "#tournamentDebug .td-entry-header strong:last-child{grid-column:2;grid-row:1;font-size:12px;color:#a8bbcf;text-align:center}",
     "#tournamentDebug .td-empty{color:#92a7bb;padding:12px 0}",
     "#tournamentDebug .td-history{max-height:320px;overflow:auto}",
     "#tournamentDebug .td-history-row{display:grid;grid-template-columns:44px minmax(0,1fr) auto;align-items:center;gap:10px;border-bottom:1px solid #20384d;padding:10px 0;font-size:15px}",
@@ -60,7 +63,7 @@
       '<div class="td-panel"><div class="td-head"><div><h2>Estado del torneo</h2></div><span class="td-badge" id="tdStatus">SIN INICIAR</span></div>' +
       '<div class="td-stats"><div class="td-stat"><small>Ronda actual</small><strong id="tdRound">—</strong></div><div class="td-stat"><small>Combates acumulados</small><strong id="tdCount">0</strong></div><div class="td-stat"><small>Participantes válidos</small><strong id="tdValid">0</strong></div><div class="td-stat"><small>Byes de esta ronda</small><strong id="tdBye">—</strong></div></div>' +
       '<div class="td-panel"><div class="td-head"><h3>ENFRENTAMIENTO ACTUAL</h3></div><div id="tdMatch"><div class="td-empty"></div></div><div class="td-actions"><button id="tdWin1" disabled>Gana R1</button><button id="tdWin2" disabled>Gana R2</button></div></div>' +
-      '<div class="td-tables"><div class="td-panel td-table"><div class="td-head"><h3>GANADORES</h3><span class="td-badge" id="tdWCount">0</span></div><div id="tdWinners"></div></div><div class="td-panel td-table"><div class="td-head"><h3>PERDEDORES</h3><span class="td-badge" id="tdLCount">0</span></div><div id="tdLosers"></div></div></div>' +
+      '<div class="td-tables"><div class="td-panel td-table"><div class="td-head"><h3>GANADORES</h3><span class="td-badge" id="tdWCount">0</span></div><div class="td-entry td-entry-header"><strong>ID BATALLA</strong><strong>ROBOT / PILOTO</strong></div><div id="tdWinners"></div></div><div class="td-panel td-table"><div class="td-head"><h3>PERDEDORES</h3><span class="td-badge" id="tdLCount">0</span></div><div class="td-entry td-entry-header"><strong>ID BATALLA</strong><strong>ROBOT / PILOTO</strong></div><div id="tdLosers"></div></div></div>' +
       '<div class="td-panel"><div class="td-head"><h3>HISTORIAL DE SERIES</h3></div><div id="tdHistory" class="td-history"><div class="td-empty">Todavía no hay combates registrados.</div></div><div class="td-actions"><button id="tdStart">Iniciar torneo</button><button id="tdReset">Reiniciar prueba</button></div></div></div>';
     const description = view.querySelector(".mgmt-description");
     if (description) description.insertAdjacentElement("afterend", panel);
