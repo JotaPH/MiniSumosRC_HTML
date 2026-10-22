@@ -53,7 +53,7 @@
     "#tournamentDebug .td-bracket-grid{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(105px,1fr);gap:0;overflow-x:auto;padding:12px 4px 18px;align-items:stretch;min-width:0}",
     "#tournamentDebug .td-grid-round{display:grid;position:relative;min-width:105px}",
     "#tournamentDebug .td-grid-title{grid-row:1;position:sticky;top:0;text-align:center;color:#70eaff;font-size:12px;font-weight:800;padding:5px 0 10px;background:#071323;z-index:2}",
-    "#tournamentDebug .td-grid-match{align-self:center;display:flex;flex-direction:column;justify-content:center;position:relative;margin:0 5px;min-width:0;border:1px solid #31516c;border-radius:5px;background:#0a1b2d}",
+    "#tournamentDebug .td-grid-match{align-self:center;display:flex;flex-direction:column;justify-content:center;position:relative;margin:0 5px;min-width:0;border:1px solid #31516c;border-radius:5px;background:#0a1b2d;z-index:1}",
     "#tournamentDebug .td-grid-match:after{content:'';position:absolute;left:100%;top:50%;width:6px;border-top:1px solid #6c8aa5}",
     "#tournamentDebug .td-grid-slot{font-size:11px;line-height:1.25;padding:5px 3px;min-height:22px;overflow-wrap:anywhere;border-bottom:1px solid #20384d;color:#8fa4b8}",
     "#tournamentDebug .td-grid-slot:last-child{border-bottom:0}",
@@ -253,12 +253,13 @@
 
     // Tabla lógica: cada ronda es una columna y cada combate se centra en su bloque de filas.
     const columns = stages.map((stage, r) => {
-      const span = 2 ** (r + 1);
+      const step = 2 ** (r + 2);
       const cards = stage.matches.map((m, i) => {
-        const rowStart = i * span + Math.floor(span / 2) + 1;
+        // Centra cada combate en el bloque de filas que alimenta esa ronda.
+        const rowStart = i * step + 2 ** (r + 1);
         const winnerA = !!m.winner && m.winner === m.a;
         const winnerB = !!m.winner && m.winner === m.b;
-        return '<div class="td-grid-match" style="grid-row:' + rowStart + ';grid-row-end:span 1">' +
+        return '<div class="td-grid-match" style="grid-row:' + rowStart + ';grid-row-end:span 2">' +
           node(m.a, winnerA) + node(m.b, winnerB) + '</div>';
       }).join('');
       return '<div class="td-grid-round" style="grid-template-rows:repeat(' + rows + ',minmax(24px,auto))">' +
