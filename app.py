@@ -2,6 +2,8 @@ from flask import Flask, jsonify, request, render_template, send_from_directory,
 from pathlib import Path
 from threading import Lock, Thread
 import json
+import random
+import combates as tournament_engine
 import os
 import sqlite3
 import subprocess
@@ -289,6 +291,67 @@ def delete_participant(participant_id):
         return jsonify({"message": "Participante eliminado de SQLite."})
     except (OSError, sqlite3.Error) as error:
         return jsonify({"error": f"No se pudo eliminar el participante: {error}"}), 503
+
+@app.post("/api/tournament/engine/start")
+def start_tournament_engine():
+    try:
+        with closing(db_connect()) as connection:
+            rows = connection.execute("""
+                SELECT id, nombre, robot, peso, cumple_dimensiones, tipo_rc,
+                       interruptor_visible, sin_elementos_fijacion, sensores_tapados
+                FROM participantes
+            """).fetchall()
+        participants = []
+        for row in rows:
+            checks = [row[key] for key in (
+                "cumple_dimensiones", "tipo_rc", "interruptor_visible",
+                "sin_elementos_fijacion", "sensores_tapados"
+            )]
+            if (float(row["peso"] or 0) > 0 and float(row["peso"] or 0) <= 500
+                    and all(bool(value) for value in checks)):
+                participants.append({"id": row["id"], "pilot": row["nombre"], "robot": row["robot"]})
+        if len(participants) < 2:
+            return jsonify({"error": "Se necesitan al menos dos participantes válidos (peso hasta 500 g y requisitos completos)."}), 400
+        random.shuffle(participants)
+        state_data = tournament_engine.start_tournament(participants)
+        encoded = json.dumps(state_data, ensure_ascii=False, separators=(",", ":"))
+        with closing(db_connect()) as connection, connection:
+            connection.execute(
+                "UPDATE torneo_debug SET iniciado=1, estado_json=? WHERE id=1",
+                (encoded,)
+            )
+        return jsonify({"started": True, "state": state_data})
+    except (OSError, sqlite3.Error, ValueError) as error:
+        return jsonify({"error": f"No se pudo iniciar la rutina Python del torneo: {error}"}), 503
+
+
+@app.post("/api/tournament/engine/result")
+def record_tournament_engine_result():
+    payload = request.get_json(silent=True) or {}
+    winner_slot_id = payload.get("winner_slot_id")
+    if not isinstance(winner_slot_id, str) or not winner_slot_id:
+        return jsonify({"error": "Falta el identificador del ganador seleccionado."}), 400
+    try:
+        with closing(db_connect()) as connection:
+            row = connection.execute(
+                "SELECT iniciado, estado_json FROM torneo_debug WHERE id=1"
+            ).fetchone()
+        if not row or not row["iniciado"] or not row["estado_json"]:
+            return jsonify({"error": "No hay un torneo Python iniciado."}), 409
+        state_data = json.loads(row["estado_json"])
+        if state_data.get("engineVersion") != 1:
+            return jsonify({"error": "El torneo guardado pertenece a la rutina anterior. Reinicia la prueba para usar combates.py."}), 409
+        state_data = tournament_engine.record_winner(state_data, winner_slot_id)
+        encoded = json.dumps(state_data, ensure_ascii=False, separators=(",", ":"))
+        with closing(db_connect()) as connection, connection:
+            connection.execute(
+                "UPDATE torneo_debug SET iniciado=?, estado_json=? WHERE id=1",
+                (1 if state_data.get("started") and state_data.get("phase") != "finished" else 0, encoded)
+            )
+        return jsonify({"started": bool(state_data.get("started")), "state": state_data})
+    except (OSError, sqlite3.Error, json.JSONDecodeError, ValueError, KeyError) as error:
+        return jsonify({"error": f"No se pudo registrar el resultado en combates.py: {error}"}), 400
+
 
 @app.get("/api/tournament/debug-state")
 def get_tournament_debug_state():
