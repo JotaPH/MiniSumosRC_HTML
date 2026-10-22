@@ -240,7 +240,9 @@
       if (completedNumber === 1) {
         beginRound("W", false);
       } else if (completedNumber === 2) {
-        beginRound("L", false, tournament.dropsByW[1] || []);
+        // Igual que en Python: al terminar Winners 2, Lossers incluye
+        // todos los participantes que ya descendieron, no solo los de la ronda 1.
+        beginRound("L", false);
       } else {
         beginRound("L", false);
       }
