@@ -491,6 +491,26 @@ body.view-subpage{overflow:auto!important}
   #managementViews #participantsView .mgmt-table td:nth-child(n){width:auto!important;min-width:0!important;max-width:none!important}
   #managementViews #participantsView .mgmt-table td:first-child{padding-left:8px!important;padding-right:8px!important;text-align:center!important}
 }
+
+/* El ID ocupa exactamente su 10%: sin márgenes heredados y con contenido centrado */
+#managementViews #participantsView .mgmt-table th:first-child,
+#managementViews #participantsView .mgmt-table td:first-child{
+  width:10%!important;
+  min-width:0!important;
+  max-width:none!important;
+  padding-left:0!important;
+  padding-right:0!important;
+  text-align:center!important;
+  text-indent:0!important;
+  box-sizing:border-box!important;
+}
+#managementViews #participantsView .mgmt-table th:first-child{
+  text-align:center!important;
+}
+#managementViews #participantsView .mgmt-table td:first-child{
+  display:table-cell!important;
+  vertical-align:middle!important;
+}
 </style>
 </head>
 <body>
