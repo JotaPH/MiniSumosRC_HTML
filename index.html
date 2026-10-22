@@ -689,15 +689,17 @@ function mgmtSchedule(){
     mgmt.initialLFought=[];
     const n=mgmt.losersOrder.length,capacity=2**Math.ceil(Math.log2(n)),byes=capacity-n,count=(n-byes)/2;
     const pairs=mgmtExtremePairs(mgmt.losersOrder,count);
-    if(pairs.length){mgmtQueueBatch(pairs,'Perdedores','Ronda inicial de perdedores 1','initialL1');continue}
+    if(pairs.length){mgmt.phase='initialL1_active';mgmtQueueBatch(pairs,'Perdedores','Ronda inicial de perdedores 1','initialL1');continue}
    }
    mgmt.phase=mgmt.initialByeCount>0?'initialL2':'main';continue;
   }
+  if(mgmt.phase==='initialL1_active'){mgmt.phase=mgmt.initialByeCount>0?'initialL2':'main';continue}
   if(mgmt.phase==='initialL2'){
    const pairs=mgmtAdjacentPairs(mgmt.losersOrder,mgmt.initialLFought||[]);
-   if(pairs.length){mgmtQueueBatch(pairs,'Perdedores','Ronda inicial de perdedores 2','initialL2');continue}
+   if(pairs.length){mgmt.phase='initialL2_active';mgmtQueueBatch(pairs,'Perdedores','Ronda inicial de perdedores 2','initialL2');continue}
    mgmt.phase='main';continue;
   }
+  if(mgmt.phase==='initialL2_active'){mgmt.phase='main';continue}
   if(mgmt.phase==='main'){
    if(winners.length>1){
     const nextWinnerCombats=Math.floor(mgmt.winnersOrder.length/2);
