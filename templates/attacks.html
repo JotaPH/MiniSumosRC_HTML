@@ -36,7 +36,7 @@ button.action:disabled{opacity:.3;filter:grayscale(1);cursor:not-allowed}
 </head>
 <body>
 <button class="fullscreen" id="fullscreenToggle" type="button" aria-label="Activar pantalla completa" title="Pantalla completa"><span id="fullscreenIcon"><span class="icon-expand">⛶</span><svg class="icon-exit" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4H4v5 M4 4l6 6 M15 20h5v-5 M20 20l-6-6"/></svg></span></button>
-<button class="gear" id="openMenu" type="button" title="Menú de secciones" aria-label="Menú de secciones">⚙</button><nav id="quickMenu" hidden aria-label="Cambiar sección"><button data-view="participants">PARTICIPANTES</button><button data-view="brackets">TABLAS</button><button data-view="battles">BATALLAS</button><button data-view="attack1">ATAQUES 1</button><button data-view="attack2">ATAQUES 2</button></nav><main class="page" style="--robot-color:{{ '#ffe34d' if robot == 1 else '#c28cff' }}">
+<button class="gear" id="openMenu" type="button" title="Menú de secciones" aria-label="Menú de secciones">⚙</button><nav id="quickMenu" hidden aria-label="Cambiar sección"><button data-view="home">COMBATE</button><button data-view="participants">PARTICIPANTES</button><button data-view="brackets">TABLAS</button><button data-view="battles">BATALLAS</button><button data-view="attack1">ATAQUES 1</button><button data-view="attack2">ATAQUES 2</button></nav><main class="page" style="--robot-color:{{ '#ffe34d' if robot == 1 else '#c28cff' }}">
 <div class="kicker">MINISUMOS RC · PANEL DE ATAQUES</div>
 <h1>Control de ataques</h1>
 <img class="robot" id="robotImage" src="{{ '/Imagenes/R_Amarillo.png' if robot == 1 else '/Imagenes/R_Morado.png' }}" alt="Robot">
@@ -48,7 +48,7 @@ button.action:disabled{opacity:.3;filter:grayscale(1);cursor:not-allowed}
 <button class="action" id="removeAttack" disabled>− DISMINUIR</button>
 <button class="action add" id="addAttack" disabled>＋ AUMENTAR</button>
 </div>
-<a class="back" href="/" id="backHome">← Volver a la arena principal</a>
+
 </main>
 <script>
 const ROBOT={{ robot }};
@@ -57,7 +57,6 @@ async function toggleFullscreen(){if(window.parent!==window){window.parent.postM
 window.addEventListener('message',event=>{if(event.origin!==window.location.origin||!event.data||event.data.type!=='fullscreenState')return;const active=!!event.data.active;$('fullscreenToggle').classList.toggle('is-fullscreen',active);$('fullscreenToggle').title=active?'Salir de pantalla completa':'Pantalla completa';$('fullscreenToggle').setAttribute('aria-label',active?'Salir de pantalla completa':'Activar pantalla completa')});
 window.addEventListener('load',()=>{if(window.parent!==window)window.parent.postMessage({type:'attackFullscreenState'},window.location.origin)});
 $('fullscreenToggle').addEventListener('click',toggleFullscreen);$('openMenu').addEventListener('click',()=>{$('quickMenu').hidden=!$('quickMenu').hidden});$('quickMenu').querySelectorAll('[data-view]').forEach(b=>b.addEventListener('click',()=>{const v=b.dataset.view;if(v==='home')location.href='/';else if(v==='battles')location.href='/battles';else if(v==='attack1')location.href='/attacks/1';else if(v==='attack2')location.href='/attacks/2';else location.href='/?section='+v}));
-$('backHome').addEventListener('click',async event=>{event.preventDefault();if(window.parent!==window){window.parent.postMessage({type:'closeAttackView'},window.location.origin);return}try{if(!document.fullscreenElement)await document.documentElement.requestFullscreen()}catch(e){}window.location.href='/'});
 document.addEventListener('fullscreenchange',()=>{const active=!!document.fullscreenElement;$('fullscreenToggle').classList.toggle('is-fullscreen',active);$('fullscreenToggle').title=active?'Salir de pantalla completa':'Pantalla completa';$('fullscreenToggle').setAttribute('aria-label',active?'Salir de pantalla completa':'Activar pantalla completa')});
 async function api(path,method='GET'){const res=await fetch(path,{method,headers:{'Content-Type':'application/json'}});const data=await res.json().catch(()=>({}));if(!res.ok)throw Error(data.error||'Error');return data}
 function render(s){
