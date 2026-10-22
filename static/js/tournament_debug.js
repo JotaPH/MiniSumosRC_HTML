@@ -162,8 +162,12 @@
     if (isW) {
       rounds.push(bracketRound('RONDA 1', pairs.map(p=>[names[p[0]], names[p[1]]])));
       const afterR1 = [];
-      pairs.forEach((p, i) => afterR1.push('Ganador B' + (i + 1)));
-      names.forEach((name, i) => { if (!paired.has(i)) afterR1.push(name); });
+      const pairByIndex = new Map();
+      pairs.forEach((p, i) => { pairByIndex.set(p[0], {winner:'Ganador B' + (i + 1), second:p[1]}); });
+      for (let i = 0; i < names.length; i++) {
+        if (pairByIndex.has(i)) afterR1.push(pairByIndex.get(i).winner);
+        else if (!pairs.some(p => p[1] === i)) afterR1.push(names[i]);
+      }
       if (byes > 0) {
         const r2Pairs = [];
         for (let i=0;i+1<afterR1.length;i+=2) r2Pairs.push([afterR1[i], afterR1[i+1]]);
