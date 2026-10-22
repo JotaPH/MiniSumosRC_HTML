@@ -612,42 +612,124 @@ function showTab(tab){const attacks=tab==='attacks';$('controlPanel').hidden=att
 function showView(view){toggleQuickMenu(false);if(view==='attack1'||view==='attack2'){window.location.href='/attacks/'+(view==='attack1'?'1':'2');return}if(view==='battles'){window.location.href='/battles';return}if(view==='participants'||view==='brackets'){openManagementView(view);return}showTab('control');toggleSettings(true)}
 $('quickMenu').querySelectorAll('button[data-view]').forEach(button=>button.addEventListener('click',()=>showView(button.dataset.view)));$('openSettings').addEventListener('click',e=>{e.stopPropagation();toggleQuickMenu()});$('closeSettings').addEventListener('click',()=>toggleSettings(false));$('scrim').addEventListener('click',()=>{toggleSettings(false);toggleQuickMenu(false)});$('tabControl').addEventListener('click',()=>showTab('control'));$('tabAttacks').addEventListener('click',()=>showTab('attacks'));document.addEventListener('click',e=>{if(!$('quickMenu').hidden&&!$('quickMenu').contains(e.target)&&e.target!==$('openSettings'))toggleQuickMenu(false)});document.addEventListener('keydown',e=>{if(e.key==='Escape'){toggleSettings(false);toggleQuickMenu(false);if(!$('winnerAnnouncement').hidden||!$('nextAnnouncement').hidden)hideAnnouncements()}});
 
-let mgmt={participants:[],nextId:1,editing:null,started:false,stats:{},current:null,history:[],matchId:1,round:1,champion:null,pendingMatches:[],initialByeIds:[],initialRoundIds:[],bracketOrder:[]};
+let mgmt={participants:[],nextId:1,editing:null,started:false,stats:{},current:null,history:[],matchId:1,round:1,champion:null,pendingMatches:[],initialByeIds:[],initialRoundIds:[],bracketOrder:[],winnersOrder:[],losersOrder:[],phase:null,batchType:'',batchLabel:'',initialWFought:[],initialLFought:[],initialWinnerMatchCount:0};
 async function loadDbParticipants(){try{const rows=await api('/api/participants');mgmt.participants=rows.map(p=>({...p,checks:[...p.checks]}));mgmt.nextId=Math.max(0,...mgmt.participants.map(p=>p.id))+1;renderManagement()}catch(error){alert('No se pudieron cargar los participantes desde SQLite: '+error.message)}}
 loadDbParticipants();
 function mgmtEsc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function mgmtStat(p){return mgmt.stats[p.id]||(mgmt.stats[p.id]={series:0,losses:0,wins:0,lastPct:null,lastAvg:null,round:0})}
 function mgmtValid(p){return Number(p.weight)>0&&Number(p.weight)<=500&&p.checks.every(Boolean)}
 function mgmtAlive(){return mgmt.participants.filter(mgmtValid).filter(p=>!p.eliminated)}
-function mgmtW(){return mgmtAlive().filter(p=>mgmtStat(p).losses===0)}
-function mgmtL(){return mgmtAlive().filter(p=>mgmtStat(p).losses===1)}
+function mgmtW(){const order=mgmt.winnersOrder||mgmt.bracketOrder||[];return mgmtAlive().filter(p=>mgmtStat(p).losses===0).sort((a,b)=>order.indexOf(a.id)-order.indexOf(b.id))}
+function mgmtL(){const order=mgmt.losersOrder||[];return mgmtAlive().filter(p=>mgmtStat(p).losses===1).sort((a,b)=>order.indexOf(a.id)-order.indexOf(b.id))}
 function mgmtPct(p){const value=mgmtStat(p).lastPct;return value==null?null:value}
 function mgmtAvg(p){const value=mgmtStat(p).lastAvg;return value==null?Infinity:value}
 function mgmtRank(a,b){const sa=mgmtStat(a),sb=mgmtStat(b),pa=sa.lastPct==null?-1:sa.lastPct,pb=sb.lastPct==null?-1:sb.lastPct,ta=sa.lastAvg==null?Infinity:sa.lastAvg,tb=sb.lastAvg==null?Infinity:sb.lastAvg;return pb-pa||ta-tb||a.id-b.id}
 function mgmtRobot(id){return mgmt.participants.find(p=>p.id===id)}
 function mgmtTime(n){if(!Number.isFinite(n))return'—';return Math.floor(n/60)+':'+String(Math.floor(n%60)).padStart(2,'0')+':'+String(Math.floor(n*100)%100).padStart(2,'0')}
-function mgmtBegin(a,b,bracket='Ganadores'){mgmt.current={id:mgmt.matchId++,a:a.id,b:b.id,bracket,round:bracket==='Final'?'Gran final':'Ronda '+mgmt.round,wA:0,wB:0}}
-function mgmtPair(arr){
- const list=arr.slice().sort((a,b)=>mgmtStat(a).series-mgmtStat(b).series);
- if(list.length<2)return null;
- const lowest=mgmtStat(list[0]).series,same=list.filter(p=>mgmtStat(p).series===lowest);
- if(same.length>=2){const shuffled=same.slice();for(let i=shuffled.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[shuffled[i],shuffled[j]]=[shuffled[j],shuffled[i]]}return [shuffled[0],shuffled[1]]}
- const first=same[0],other=list.filter(p=>p.id!==first.id).sort(mgmtRank);
- return other.length?[first,other[0]]:null
+function mgmtBegin(a,b,bracket='Ganadores',roundLabel=null,meta={}){
+ mgmt.current={id:mgmt.matchId++,a:a.id,b:b.id,bracket,round:roundLabel||(bracket==='Final'?'Gran final':'Ronda '+mgmt.round),wA:0,wB:0,batchType:meta.batchType||mgmt.batchType||'',side:meta.side||null,lossInsertAfter:meta.lossInsertAfter??null};
+ mgmtStat(a).round=mgmt.round;mgmtStat(b).round=mgmt.round;
 }
+function mgmtExtremePairs(ids,count){
+ const pairs=[];let left=0,right=ids.length-1;
+ while(pairs.length<count&&left<right){
+  pairs.push({a:ids[left],b:ids[left+1],side:'izquierda'});left+=2;
+  if(pairs.length>=count||left>=right)break;
+  pairs.push({a:ids[right-1],b:ids[right],side:'derecha'});right-=2;
+ }
+ return pairs;
+}
+function mgmtAdjacentPairs(ids,foughtIds=[]){
+ const priorities=[],remaining=[],fought=new Set(foughtIds);
+ for(let i=0;i+1<ids.length;i+=2){
+  const pair={a:ids[i],b:ids[i+1],side:'izquierda'};
+  if(!fought.has(pair.a)&&!fought.has(pair.b))priorities.push(pair);else remaining.push(pair);
+ }
+ return priorities.concat(remaining);
+}
+function mgmtQueueBatch(pairs,bracket,label,type){
+ mgmt.batchType=type;mgmt.batchLabel=label;
+ mgmt.pendingMatches=pairs.map(pair=>({...pair,bracket,round:label,batchType:type}));
+}
+function mgmtInsertInitialLoser(id,matchNumber){
+ if(matchNumber===1)mgmt.losersOrder.unshift(id);
+ else if(matchNumber===2)mgmt.losersOrder.push(id);
+ else mgmt.losersOrder.splice(Math.min(Math.floor((matchNumber-1)/2),mgmt.losersOrder.length),0,id);
+}
+function mgmtOrderLosersRivals(count){
+ const ids=mgmt.losersOrder.slice(),out=[];let left=0,right=ids.length-1;
+ while(left<=right&&out.length<count){
+  out.push(ids[right]);if(out.length>=count)break;
+  if(left!==right)out.push(ids[left]);
+  left++;right--;
+ }
+ return out;
+}
+function mgmtRemoveId(list,id){const i=list.indexOf(id);if(i>=0)list.splice(i,1)}
 function mgmtSchedule(){
  if(mgmt.champion){mgmt.current=null;return}
- if(mgmt.pendingMatches.length){const next=mgmt.pendingMatches.shift();mgmtBegin(mgmtRobot(next.a),mgmtRobot(next.b),next.bracket||'Ganadores');return}
- const w=mgmtW(),l=mgmtL();
- if(w.length===1&&l.length===1){mgmtBegin(w[0],l[0],'Final');return}
- let pair=mgmtPair(l);
- if(pair&&mgmtStat(pair[0]).series===mgmtStat(pair[1]).series){mgmtBegin(pair[0],pair[1],'Perdedores');return}
- pair=mgmtPair(w);
- if(pair){mgmtBegin(pair[0],pair[1],'Ganadores');return}
- pair=mgmtPair(l);
- if(pair){mgmtBegin(pair[0],pair[1],'Perdedores');return}
- if(mgmtAlive().length===1){mgmt.champion=mgmtAlive()[0].id;mgmt.current=null;return}
- mgmt.current=null
+ while(!mgmt.current){
+  if(mgmt.pendingMatches.length){
+   const next=mgmt.pendingMatches.shift();
+   mgmtBegin(mgmtRobot(next.a),mgmtRobot(next.b),next.bracket||'Ganadores',next.round||mgmt.batchLabel,next);
+   return;
+  }
+  const winners=mgmtW(),losers=mgmtL();
+  if(mgmt.phase==='initialW1'){
+   if(mgmt.initialByeCount>0){
+    mgmt.phase='initialW2';
+    const pairs=mgmtAdjacentPairs(mgmt.winnersOrder,mgmt.initialWFought||[]);
+    if(pairs.length){mgmtQueueBatch(pairs,'Ganadores','Ronda inicial 2','initialW2');continue}
+   }
+   mgmt.phase='initialL1';continue;
+  }
+  if(mgmt.phase==='initialW2'){mgmt.phase='initialL1';continue}
+  if(mgmt.phase==='initialL1'){
+   if(losers.length>=2){
+    mgmt.initialLFought=[];
+    const n=mgmt.losersOrder.length,capacity=2**Math.ceil(Math.log2(n)),byes=capacity-n,count=(n-byes)/2;
+    const pairs=mgmtExtremePairs(mgmt.losersOrder,count);
+    if(pairs.length){mgmtQueueBatch(pairs,'Perdedores','Ronda inicial de perdedores 1','initialL1');continue}
+   }
+   mgmt.phase=mgmt.initialByeCount>0?'initialL2':'main';continue;
+  }
+  if(mgmt.phase==='initialL2'){
+   const pairs=mgmtAdjacentPairs(mgmt.losersOrder,mgmt.initialLFought||[]);
+   if(pairs.length){mgmtQueueBatch(pairs,'Perdedores','Ronda inicial de perdedores 2','initialL2');continue}
+   mgmt.phase='main';continue;
+  }
+  if(mgmt.phase==='main'){
+   if(winners.length>1){
+    const nextWinnerCombats=Math.floor(mgmt.winnersOrder.length/2);
+    if(mgmt.losersOrder.length>nextWinnerCombats&&mgmt.losersOrder.length>=2){
+     const n=mgmt.losersOrder.length,capacity=2**Math.ceil(Math.log2(n)),byes=capacity-n,count=(n-byes)/2;
+     const pairs=mgmtExtremePairs(mgmt.losersOrder,count);
+     if(pairs.length){mgmtQueueBatch(pairs,'Perdedores','Ronda de perdedores '+mgmt.round,'mainLosers');continue}
+    }
+    const ids=mgmt.winnersOrder.slice(),pairs=[];
+    for(let i=0;i+1<ids.length;i+=2)pairs.push({a:ids[i],b:ids[i+1],side:'izquierda'});
+    const rivals=mgmtOrderLosersRivals(pairs.length);pairs.forEach((pair,i)=>{pair.lossInsertAfter=rivals[i]??null});
+    if(pairs.length){mgmtQueueBatch(pairs,'Ganadores','Ronda de ganadores '+mgmt.round,'mainWinners');continue}
+    mgmt.phase='resolveLosers';continue;
+   }
+   mgmt.phase='resolveLosers';continue;
+  }
+  if(mgmt.phase==='resolveLosers'){
+   if(mgmt.losersOrder.length>1){
+    const n=mgmt.losersOrder.length,capacity=2**Math.ceil(Math.log2(n)),byes=capacity-n,count=(n-byes)/2;
+    const pairs=mgmtExtremePairs(mgmt.losersOrder,count);
+    if(pairs.length){mgmtQueueBatch(pairs,'Perdedores','Ronda final de perdedores '+mgmt.round,'resolveLosers');continue}
+   }
+   mgmt.phase='final';continue;
+  }
+  if(mgmt.phase==='final'){
+   const w=mgmtW(),l=mgmtL();
+   if(w.length===1&&l.length===1){mgmtBegin(w[0],l[0],'Final','Gran final',{batchType:'final'});return}
+   if(mgmtAlive().length===1){mgmt.champion=mgmtAlive()[0].id;mgmt.current=null;return}
+   mgmt.current=null;return;
+  }
+  mgmt.current=null;return;
+ }
 }
 function openManagementView(view){$('managementQuickMenu').querySelectorAll('[data-mgmt-view]').forEach(b=>{const current=b.dataset.mgmtView===view;b.hidden=current;b.style.display=current?'none':''});$('arena').style.display='none';$('managementViews').hidden=false;$('participantsView').hidden=view!=='participants';$('bracketsView').hidden=view!=='brackets';$('managementQuickMenu').hidden=true;$('managementGear').setAttribute('aria-expanded','false');document.body.classList.add('view-subpage');hideAnnouncements();renderManagement()}
 function closeManagementView(){$('managementViews').hidden=true;$('managementQuickMenu').hidden=true;$('managementGear').setAttribute('aria-expanded','false');$('arena').style.display='';document.body.classList.remove('view-subpage')}
@@ -656,33 +738,35 @@ $('managementFullscreen').addEventListener('click',toggleFullscreen);$('manageme
 function renderManagement(){const v=mgmt.participants.filter(mgmtValid),w=mgmtW(),l=mgmtL(),el=mgmt.participants.filter(p=>p.eliminated);$('mgmtValidCount').textContent=v.length;$('mgmtTotalCount').textContent=mgmt.participants.length;$('mgmtWCount').textContent=w.length;$('mgmtLCount').textContent=l.length;$('bracketWCount').textContent=w.length;$('bracketLCount').textContent=l.length;$('bracketECount').textContent=el.length;$('bracketMCount').textContent=mgmt.history.length;$('bracketWTag').textContent=w.length+' robots';$('bracketLTag').textContent=l.length+' robots';
 $('mgmtParticipantsTable').innerHTML=mgmt.participants.slice().sort((a,b)=>Number(mgmtValid(b))-Number(mgmtValid(a))).map(p=>'<tr class="'+(mgmtValid(p)?'participant-valid':'participant-invalid')+'"><td class="mgmt-number-cell" data-label="ID">'+p.id+'</td><td data-label="Robot / piloto"><strong>'+mgmtEsc(p.robot)+'</strong><br><span class="mgmt-muted">'+mgmtEsc(p.pilot)+'</span></td><td data-label="Peso">'+p.weight+' g</td><td data-label="Validación"><span class="mgmt-tag '+(mgmtValid(p)?'':'bad')+'">'+(mgmtValid(p)?'VÁLIDO':'REVISAR')+'</span></td><td data-label="Acciones"><div class="mgmt-row-actions"><button type="button" class="mgmt-btn" data-mgmt-edit="'+p.id+'">Editar</button> <button type="button" class="mgmt-btn danger" data-mgmt-del="'+p.id+'">Eliminar</button></div></td></tr>').join('')||'<tr><td colspan="5">Sin participantes registrados.</td></tr>';
 const row=p=>'<tr><td data-label="Robot / piloto"><strong>'+mgmtEsc(p.robot)+'</strong><br><span class="mgmt-muted">'+mgmtEsc(p.pilot)+'</span></td><td data-label="Ronda">'+(mgmtStat(p).round??0)+'</td></tr>';
- $('mgmtWinners').innerHTML=w.slice().sort((a,b)=>mgmt.bracketOrder.indexOf(a.id)-mgmt.bracketOrder.indexOf(b.id)).map(row).join('')||'<tr><td colspan="2" class="mgmt-empty">No hay robots válidos en ganadores.</td></tr>';
- $('mgmtLosers').innerHTML=l.slice().sort((a,b)=>mgmt.bracketOrder.indexOf(a.id)-mgmt.bracketOrder.indexOf(b.id)).map(row).join('')||'<tr><td colspan="2" class="mgmt-empty">Aún no hay robots en perdedores.</td></tr>';
+ $('mgmtWinners').innerHTML=w.slice().sort((a,b)=>mgmt.winnersOrder.indexOf(a.id)-mgmt.winnersOrder.indexOf(b.id)).map(row).join('')||'<tr><td colspan="2" class="mgmt-empty">No hay robots válidos en ganadores.</td></tr>';
+ $('mgmtLosers').innerHTML=l.slice().sort((a,b)=>mgmt.losersOrder.indexOf(a.id)-mgmt.losersOrder.indexOf(b.id)).map(row).join('')||'<tr><td colspan="2" class="mgmt-empty">Aún no hay robots en perdedores.</td></tr>';
 if(mgmt.current){let a=mgmtRobot(mgmt.current.a),b=mgmtRobot(mgmt.current.b);$('mgmtCurrentMatch').innerHTML='<div class="mgmt-current"><div class="mgmt-robot"><div>🤖</div><strong>'+mgmtEsc(a.robot)+'</strong><small>'+mgmt.current.wA+' victorias en la serie</small><button class="mgmt-btn primary" style="margin-top:12px" data-mgmt-win="'+a.id+'">Ganó batalla</button></div><div class="mgmt-vs">VS</div><div class="mgmt-robot"><div>🤖</div><strong>'+mgmtEsc(b.robot)+'</strong><small>'+mgmt.current.wB+' victorias en la serie</small><button class="mgmt-btn primary" style="margin-top:12px" data-mgmt-win="'+b.id+'">Ganó batalla</button></div></div><div class="mgmt-panel-body mgmt-muted">Serie '+mgmt.current.wA+' — '+mgmt.current.wB+' · '+mgmt.current.bracket+' · al mejor de 3</div>'}else{$('mgmtCurrentMatch').innerHTML='<div class="mgmt-panel-body mgmt-empty">'+(mgmt.champion?'🏆 Campeón: '+mgmtEsc(mgmtRobot(mgmt.champion)?.robot):'Inicia el torneo para generar el primer enfrentamiento.')+'</div>'}
 let ranking=[...w.map(p=>({...p,_t:'GANADORES'})),...l.map(p=>({...p,_t:'PERDEDORES'}))].sort((a,b)=>mgmt.bracketOrder.indexOf(a.id)-mgmt.bracketOrder.indexOf(b.id));$('mgmtRanking').innerHTML=ranking.map(p=>'<tr><td>'+p._t+'</td><td>'+mgmtEsc(p.robot)+'<br><span class="mgmt-muted">'+mgmtEsc(p.pilot)+'</span></td><td>'+mgmtStat(p).round+'</td></tr>').join('')||'<tr><td colspan="3">Sin participantes válidos.</td></tr>';$('mgmtHistory').innerHTML=mgmt.history.map(h=>'<tr><td>'+h.id+'</td><td>'+h.round+'</td><td>'+mgmtEsc(h.a)+' vs '+mgmtEsc(h.b)+'</td><td>'+h.score+'</td><td>'+mgmtEsc(h.winner)+'</td></tr>').join('')||'<tr><td colspan="5">Aún no hay series finalizadas.</td></tr>';$('mgmtStartTournament').textContent=mgmt.started?'Reiniciar torneo':'Iniciar torneo'}
 function mgmtClearForm(){$('mgmtParticipantForm').reset();['mgmtC1','mgmtC2','mgmtC3','mgmtC4','mgmtC5'].forEach(id=>$(id).checked=true);mgmt.editing=null;$('mgmtFormTitle').textContent='AGREGAR PARTICIPANTE';$('mgmtSaveParticipant').textContent='Agregar participante';$('mgmtParticipantModal').hidden=true}
 function mgmtOpenParticipantForm(){mgmtClearForm();$('mgmtParticipantModal').hidden=false;$('mgmtPilot').focus()}
-function mgmtResetCheck(){mgmt.started=false;mgmt.current=null;mgmt.history=[];mgmt.stats={};mgmt.round=1;mgmt.champion=null;mgmt.pendingMatches=[];mgmt.initialByeIds=[];mgmt.initialRoundIds=[];mgmt.bracketOrder=[];mgmt.participants.forEach(p=>delete p.eliminated);return true}
+function mgmtResetCheck(){
+ mgmt.started=false;mgmt.current=null;mgmt.history=[];mgmt.stats={};mgmt.round=1;mgmt.champion=null;mgmt.pendingMatches=[];
+ mgmt.initialByeIds=[];mgmt.initialRoundIds=[];mgmt.bracketOrder=[];mgmt.winnersOrder=[];mgmt.losersOrder=[];
+ mgmt.phase=null;mgmt.batchType='';mgmt.batchLabel='';mgmt.initialWFought=[];mgmt.initialLFought=[];mgmt.initialWinnerMatchCount=0;
+ mgmt.participants.forEach(p=>delete p.eliminated);return true
+}
 function mgmtStartCompetition(){
- mgmt.started=true;mgmt.history=[];mgmt.stats={};mgmt.champion=null;mgmt.matchId=1;mgmt.round=1;mgmt.pendingMatches=[];mgmt.initialByeIds=[];mgmt.initialRoundIds=[];
+ mgmt.started=true;mgmt.history=[];mgmt.stats={};mgmt.champion=null;mgmt.matchId=1;mgmt.round=1;mgmt.pendingMatches=[];
+ mgmt.initialByeIds=[];mgmt.initialRoundIds=[];mgmt.initialWFought=[];mgmt.initialLFought=[];mgmt.initialWinnerMatchCount=0;mgmt.phase='initialW1';mgmt.batchType='';mgmt.batchLabel='';
  mgmt.participants.forEach(p=>{p.eliminated=!mgmtValid(p);if(mgmtValid(p))mgmtStat(p)});
  const entrants=mgmt.participants.filter(mgmtValid);
  for(let i=entrants.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[entrants[i],entrants[j]]=[entrants[j],entrants[i]]}
- if(entrants.length<2){mgmt.current=null;renderManagement();return}
- mgmt.bracketOrder=entrants.map(p=>p.id);
- const bracketSize=2**Math.ceil(Math.log2(entrants.length));
- const byes=bracketSize-entrants.length;
- const firstRoundCount=entrants.length-byes;
- const byeEntrants=entrants.slice(0,byes);
- const firstRoundEntrants=entrants.slice(byes);
- byeEntrants.forEach(p=>{mgmtStat(p).round=1;mgmt.initialByeIds.push(p.id)});
- firstRoundEntrants.forEach(p=>{mgmtStat(p).round=0;mgmt.initialRoundIds.push(p.id)});
- const pairs=[];
- for(let i=0;i<firstRoundEntrants.length;i+=2){if(firstRoundEntrants[i+1])pairs.push({a:firstRoundEntrants[i].id,b:firstRoundEntrants[i+1].id,bracket:'Ganadores'})}
- if(pairs.length){const first=pairs.shift();mgmtBegin(mgmtRobot(first.a),mgmtRobot(first.b),'Ganadores');mgmt.pendingMatches=pairs}
- else{mgmt.current=null}
+ if(entrants.length<2){mgmt.current=null;if(entrants.length===1)mgmt.champion=entrants[0].id;renderManagement();return}
+ mgmt.bracketOrder=entrants.map(p=>p.id);mgmt.winnersOrder=entrants.map(p=>p.id);mgmt.losersOrder=[];
+ const bracketSize=2**Math.ceil(Math.log2(entrants.length)),byes=bracketSize-entrants.length;
+ const firstRoundCount=entrants.length-byes,combats=firstRoundCount/2;
  mgmt.initialByeCount=byes;mgmt.initialBracketSize=bracketSize;mgmt.initialRoundNumber=1;
- renderManagement()
+ const pairs=mgmtExtremePairs(mgmt.winnersOrder,combats),pairedIds=new Set(pairs.flatMap(pair=>[pair.a,pair.b]));
+ mgmt.initialByeIds=entrants.filter(p=>!pairedIds.has(p.id)).map(p=>p.id);
+ mgmt.initialRoundIds=entrants.filter(p=>pairedIds.has(p.id)).map(p=>p.id);
+ entrants.forEach(p=>{mgmtStat(p).round=mgmt.initialByeIds.includes(p.id)?1:0});
+ mgmtQueueBatch(pairs,'Ganadores','Ronda inicial de ganadores 1','initialW1');
+ mgmtSchedule();renderManagement()
 }
 $('mgmtOpenForm').addEventListener('click',mgmtOpenParticipantForm);
 $('mgmtCloseForm').addEventListener('click',mgmtClearForm);
@@ -718,7 +802,43 @@ $('mgmtParticipantsTable').addEventListener('click',async e=>{let ed=e.target.cl
 function requestParticipantDelete(robot){return new Promise(resolve=>{const modal=$('mgmtDeleteModal');$('mgmtDeleteMessage').textContent='¿Eliminar a '+robot+'?';modal.hidden=false;const finish=value=>{modal.hidden=true;cleanup();resolve(value)};const accept=()=>finish(true),cancel=()=>finish(false),backdrop=e=>{if(e.target.closest('[data-close-mgmt-delete]'))finish(false)},key=e=>{if(e.key==='Escape')finish(false)};function cleanup(){$('mgmtDeleteAccept').removeEventListener('click',accept);$('mgmtDeleteCancel').removeEventListener('click',cancel);modal.removeEventListener('click',backdrop);document.removeEventListener('keydown',key)}$('mgmtDeleteAccept').addEventListener('click',accept);$('mgmtDeleteCancel').addEventListener('click',cancel);modal.addEventListener('click',backdrop);document.addEventListener('keydown',key);$('mgmtDeleteCancel').focus()})}
 $('mgmtStartTournament').addEventListener('click',()=>mgmtStartCompetition());
 $('mgmtNextSeries').addEventListener('click',()=>{if(!mgmt.started){alert('Primero inicia el torneo.');return}if(!mgmt.current)mgmtSchedule();renderManagement()});
-$('mgmtCurrentMatch').addEventListener('click',e=>{let btn=e.target.closest('[data-mgmt-win]');if(!btn||!mgmt.current)return;let id=Number(btn.dataset.mgmtWin),m=mgmt.current,a=mgmtRobot(m.a),b=mgmtRobot(m.b),winGame=id===m.a?a:b;if(id===m.a)m.wA++;else m.wB++;let game=m.wA+m.wB;/* Las métricas reales se añadirán al integrar el registro de ataques y tiempos por batalla. */if(m.wA<2&&m.wB<2){renderManagement();return}let winner=m.wA===2?a:b,loser=m.wA===2?b:a;mgmtStat(winner).series++;mgmtStat(loser).series++;mgmtStat(winner).wins++;mgmt.history.unshift({id:m.id,round:m.round,a:a.robot,b:b.robot,score:m.wA+'-'+m.wB,winner:winner.robot});if(m.bracket==='Final'&&m.round==='Gran final'){if(winner.id===a.id){mgmtStat(b).losses++;b.eliminated=true;mgmt.champion=a.id;mgmt.current=null}else{mgmtStat(a).losses++;mgmt.current=null;mgmtBegin(a,b,'Final');mgmt.current.round='Gran final · reinicio';renderManagement();return}}else if(m.round==='Gran final · reinicio'){mgmtStat(loser).losses++;loser.eliminated=true;mgmt.champion=winner.id;mgmt.current=null}else{mgmtStat(loser).losses++;if(mgmtStat(loser).losses>=2)loser.eliminated=true}mgmt.current=null;mgmt.round++;mgmtSchedule();renderManagement()});
+$('mgmtCurrentMatch').addEventListener('click',e=>{
+ let btn=e.target.closest('[data-mgmt-win]');if(!btn||!mgmt.current)return;
+ const id=Number(btn.dataset.mgmtWin),m=mgmt.current,a=mgmtRobot(m.a),b=mgmtRobot(m.b);
+ if(id===m.a)m.wA++;else if(id===m.b)m.wB++;else return;
+ if(m.wA<2&&m.wB<2){renderManagement();return}
+ const winner=m.wA===2?a:b,loser=m.wA===2?b:a;
+ mgmtStat(winner).series++;mgmtStat(loser).series++;mgmtStat(winner).wins++;
+ mgmt.history.unshift({id:m.id,round:m.round,a:a.robot,b:b.robot,score:m.wA+'-'+m.wB,winner:winner.robot});
+ if(m.bracket==='Final'&&m.round==='Gran final'){
+  if(winner.id===a.id){mgmtStat(b).losses++;b.eliminated=true;mgmt.champion=a.id;mgmt.current=null;mgmt.phase='done'}
+  else{mgmtStat(a).losses++;mgmt.current=null;mgmtBegin(a,b,'Final','Gran final · reinicio',{batchType:'finalReset'});renderManagement();return}
+ }else if(m.round==='Gran final · reinicio'){
+  mgmtStat(loser).losses++;loser.eliminated=true;mgmt.champion=winner.id;mgmt.current=null;mgmt.phase='done'
+ }else{
+  mgmtStat(loser).losses++;
+  if(m.bracket==='Ganadores'){
+   mgmtRemoveId(mgmt.winnersOrder,loser.id);
+   if(m.batchType==='initialW1'||m.batchType==='initialW2'){
+    mgmt.initialWFought=mgmt.initialWFought||[];if(!mgmt.initialWFought.includes(a.id))mgmt.initialWFought.push(a.id);if(!mgmt.initialWFought.includes(b.id))mgmt.initialWFought.push(b.id);
+    mgmt.initialWinnerMatchCount++;mgmtInsertInitialLoser(loser.id,mgmt.initialWinnerMatchCount);
+   }else{
+    const rivalId=m.lossInsertAfter;
+    if(rivalId!=null&&mgmt.losersOrder.includes(rivalId))mgmt.losersOrder.splice(mgmt.losersOrder.indexOf(rivalId)+1,0,loser.id);
+    else mgmt.losersOrder.push(loser.id);
+   }
+  }else{
+   mgmtRemoveId(mgmt.losersOrder,loser.id);
+   if(m.batchType==='initialL1'||m.batchType==='initialL2'){
+    mgmt.initialLFought=mgmt.initialLFought||[];if(!mgmt.initialLFought.includes(winner.id))mgmt.initialLFought.push(winner.id);
+    if(!mgmt.initialLFought.includes(loser.id))mgmt.initialLFought.push(loser.id);
+   }
+  }
+  if(mgmtStat(loser).losses>=2)loser.eliminated=true;
+ }
+ if(mgmt.pendingMatches.length===0)mgmt.round++;
+ mgmt.current=null;mgmtSchedule();renderManagement()
+});
 
 let lastUiActionId=0;
 async function handleTerminalAction(s){
