@@ -131,8 +131,8 @@
     return '<div class="td-bracket-round"><div class="td-bracket-round-title">' + esc(title) + '</div>' +
       (matches.length ? matches.map((m, i) =>
         '<div class="td-bracket-match"><div class="td-bracket-match-id">B' + (i + 1) + '</div>' +
-        '<div class="td-bracket-slot ' + (m[0] ? 'filled' : '') + '">' + esc(m[0] || 'Por definir') + '</div>' +
-        '<div class="td-bracket-slot ' + (m[1] ? 'filled' : '') + '">' + esc(m[1] || 'Por definir') + '</div></div>'
+        '<div class="td-bracket-slot ' + (m[0] ? 'filled' : 'empty') + '">' + (m[0] ? esc(m[0]) : '&nbsp;') + '</div>' +
+        '<div class="td-bracket-slot ' + (m[1] ? 'filled' : 'empty') + '">' + (m[1] ? esc(m[1]) : '&nbsp;') + '</div></div>'
       ).join('') : '<div class="td-empty">Sin combates en esta ronda</div>') + '</div>';
   }
 
@@ -173,7 +173,7 @@
       let roundNo = byes > 0 ? 3 : 2;
       while (count > 1) {
         count = Math.ceil(count / 2);
-        rounds.push(bracketRound('RONDA ' + roundNo, Array.from({length:count},()=>['Ganador anterior','Ganador anterior'])));
+        rounds.push(bracketRound('RONDA ' + roundNo, Array.from({length:count},()=>['',''])));
         roundNo++;
       }
     } else {
@@ -190,13 +190,13 @@
       let roundNo = 2;
       if (byes > 0 && remaining > 1) {
         const l2Matches = Math.floor(remaining / 2);
-        rounds.push(bracketRound('RONDA 2', Array.from({length:l2Matches},(_,i)=>['Ganador R1', 'Perdedor W-R2 ' + (i+1)])));
+        rounds.push(bracketRound('RONDA 2', Array.from({length:l2Matches},(_,i)=>['', ''])));
         remaining = remaining - l2Matches;
         roundNo = 3;
       }
       while (remaining > 1) {
         const next = Math.floor(remaining / 2);
-        rounds.push(bracketRound('RONDA ' + roundNo, Array.from({length:next},()=>['Ganador anterior','Perdedor de ganadores'])));
+        rounds.push(bracketRound('RONDA ' + roundNo, Array.from({length:next},()=>['',''])));
         remaining -= next;
         roundNo++;
       }
