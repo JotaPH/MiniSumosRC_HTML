@@ -74,7 +74,7 @@
   function syncManagementState() {
     try {
       if (typeof mgmt !== "undefined") {
-        mgmt.started = !!(tournament && tournament.started);
+        mgmt.started = !!(tournament && tournament.started && tournament.phase !== "finished");
         mgmt.history = tournament ? tournament.history : [];
         mgmt.current = tournament && tournament.current ? {a:slotPlayer(tournament.current.a)?.id,b:slotPlayer(tournament.current.b)?.id} : null;
       }
@@ -266,7 +266,7 @@
       const response = await fetch("/api/tournament/debug-state");
       if (!response.ok) return;
       const data = await response.json();
-      if (!data.started && tournament.started) {
+      if ((!data.state || data.state.engineVersion !== 1) && tournament.started) {
         await refreshParticipants();
         tournament = freshState();
         tournament.logs = [{message:"El torneo se reinició por un cambio en los participantes.",kind:"system"}];
