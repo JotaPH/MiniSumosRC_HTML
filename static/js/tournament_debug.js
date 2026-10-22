@@ -30,12 +30,20 @@
     "#tdWin1{background:#16854f;color:#fff}#tdWin2{background:#2469bc;color:#fff}#tdStart{background:#ffe66d;color:#18202a}#tdReset{background:#25394d;color:#fff;border:1px solid #526c82}",
     "#tournamentDebug .td-tables{display:grid;grid-template-columns:1fr 1fr;gap:14px}",
     "#tournamentDebug .td-table h3{margin-bottom:10px}",
-    "#tournamentDebug .td-entry{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:8px;background:#0a1b2d;margin:6px 0}",
-    "#tournamentDebug .td-index{min-width:68px;font:700 13px ui-monospace,monospace;color:#ffe66d}",
-    "#tournamentDebug .td-entry strong{flex:1;overflow-wrap:anywhere}",
+    "#tournamentDebug .td-entry{display:grid;grid-template-columns:88px minmax(0,1fr);align-items:center;gap:3px 10px;padding:10px;border-radius:8px;background:#0a1b2d;margin:6px 0;text-align:center}",
+    "#tournamentDebug .td-index{grid-column:1;grid-row:1 / span 2;min-width:0;text-align:center;font:700 13px ui-monospace,monospace;color:#ffe66d}",
+    "#tournamentDebug .td-entry strong{grid-column:2;display:block;font-size:20px;line-height:1.2;overflow-wrap:anywhere;text-align:center}",
+    "#tournamentDebug .td-entry .td-muted{grid-column:2;display:block;text-align:center;font-size:13px}",
     "#tournamentDebug .td-empty{color:#92a7bb;padding:12px 0}",
-    "#tournamentDebug .td-history{max-height:220px;overflow:auto}",
-    "#tournamentDebug .td-history-row{display:grid;grid-template-columns:44px 1fr auto;gap:10px;border-bottom:1px solid #20384d;padding:8px 0;font-size:13px}",
+    "#tournamentDebug .td-history{max-height:320px;overflow:auto}",
+    "#tournamentDebug .td-history-row{display:grid;grid-template-columns:44px minmax(0,1fr) auto;align-items:center;gap:10px;border-bottom:1px solid #20384d;padding:10px 0;font-size:15px}",
+    "#tournamentDebug .td-history-number{color:#a8bbcf;text-align:center;font-size:15px}",
+    "#tournamentDebug .td-history-round{color:#70eaff;font-size:14px;font-weight:800;margin-bottom:3px}",
+    "#tournamentDebug .td-history-robots{font-size:17px;font-weight:800;overflow-wrap:anywhere}",
+    "#tournamentDebug .td-history-robots span{color:#a8bbcf;font-size:13px;font-weight:500}",
+    "#tournamentDebug .td-history-winner{font-size:15px;margin-top:4px}",
+    "#tournamentDebug .td-history-winner strong{font-size:17px;color:#ffe66d}",
+    "#tournamentDebug .td-history-score{font-size:17px;white-space:nowrap;color:#fff}",
     "#tournamentDebug .td-note{color:#a8bbcf;font-size:13px;line-height:1.45;margin:10px 0 0}",
     "#tournamentDebug .td-badge{display:inline-block;border-radius:99px;padding:5px 9px;background:#17344b;color:#70eaff;font-size:12px;font-weight:800}",
     "#tournamentDebug .td-console{background:#03080d;border:1px solid #263b4c;border-radius:10px;padding:12px;max-height:340px;overflow:auto;color:#b7f7c5;font:12px/1.55 ui-monospace,SFMono-Regular,Consolas,monospace;white-space:pre-wrap;overflow-wrap:anywhere}#tournamentDebug .td-console-line{min-height:1em}#tournamentDebug .td-console-line.system{color:#70eaff}#tournamentDebug .td-console-line.error{color:#ff8e8e}",
@@ -114,9 +122,9 @@
     $("tdStatus").textContent = tournament.phase === "finished" ? "TORNEO FINALIZADO" : tournament.started ? "TORNEO INICIADO" : "SIN INICIAR";
     const stage = tournament.stage || "ready";
     const labels = {
-      initialW1:"Winners · Ronda inicial 1", initialW2:"Winners · Ronda inicial 2",
-      initialL1:"Lossers · Ronda inicial 1", initialL2:"Lossers · Ronda inicial 2",
-      mainW:"Winners", internalL:"Lossers · etapa interna", final:"Gran final",
+      initialW1:"Ganadores · Ronda 1", initialW2:"Ganadores · Ronda 2",
+      initialL1:"Perdedores · Ronda 1", initialL2:"Perdedores · Ronda 2",
+      mainW:"Ganadores", internalL:"Perdedores · etapa interna", final:"Gran final",
       finalReset:"Revancha final", done:"Finalizado", ready:"—", main:"Preparando siguiente etapa"
     };
     $("tdRound").textContent = labels[stage] || stage;
