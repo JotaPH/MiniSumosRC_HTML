@@ -48,6 +48,7 @@
     "#tournamentDebug .td-bracket-slot{font-size:12px;line-height:1.35;padding:7px 4px;color:#8fa4b8;overflow-wrap:anywhere;border-bottom:1px solid #20384d;min-height:27px}",
     "#tournamentDebug .td-bracket-slot:last-child{border-bottom:0}",
     "#tournamentDebug .td-bracket-slot.filled{color:#fff;font-weight:700}",
+    "#tournamentDebug .td-bracket-winner{color:#8ff0ae!important;background:#123b31;font-weight:900;border-radius:4px;padding-left:7px;",
     "#tournamentDebug .td-bracket-empty{color:#92a7bb;text-align:center;padding:28px 10px;font-size:13px}",
     "#tournamentDebug .td-empty{color:#92a7bb;padding:12px 0}",
     "#tournamentDebug .td-history{max-height:320px;overflow:auto}",
@@ -162,21 +163,58 @@
     };
     const rounds = [];
     if (branch === 'W') {
+      const nameForSlot = id => {
+        const s = slot(id);
+        const p = s && player(s.robot_id);
+        return p ? p.robot : '';
+      };
+      const winnerByMatch = (stage, index) => {
+        const rows = (tournament.history || []).filter(h => h.round === stage);
+        return rows[index] || null;
+      };
+      const stageMatches = stage => {
+        const played = (tournament.history || []).filter(h => h.round === stage)
+          .map(h => ({a:h.a || '', b:h.b || '', winner:h.winner || ''}));
+        const pending = [];
+        const queue = [];
+        if (tournament.current && tournament.current.stage === stage) queue.push(tournament.current);
+        (tournament.queue || []).forEach(m => { if (m.stage === stage && (!tournament.current || m.a !== tournament.current.a || m.b !== tournament.current.b)) queue.push(m); });
+        queue.forEach(m => pending.push({a:nameForSlot(m.a), b:nameForSlot(m.b), winner:''}));
+        return played.concat(pending);
+      };
+      const matchCard = (m, i) => {
+        const row = (name, winner) => '<div class="td-bracket-slot ' + (name ? 'filled' : 'empty') + (winner ? ' td-bracket-winner' : '') + '">' + (name ? esc(name) : '&nbsp;') + (winner ? ' ✓' : '') + '</div>';
+        return '<div class="td-bracket-match"><div class="td-bracket-match-id">' + (i + 1) + '</div>' + row(m.a, !!m.winner && m.winner === m.a) + row(m.b, !!m.winner && m.winner === m.b) + '</div>';
+      };
+      const liveRound = (title, matches) => '<div class="td-bracket-round"><div class="td-bracket-round-title">' + title + '</div>' +
+        (matches.length ? matches.map(matchCard).join('') : '<div class="td-empty">Por jugar</div>') + '</div>';
       const firstPairs = extremePairs(n, firstWCount);
-      rounds.push(bracketRound('RONDA 1', firstPairs.map(p=>[players[p[0]].robot, players[p[1]].robot]), 1, true));
+      const firstResults = stageMatches('initialW1');
+      const first = firstPairs.map((p,i) => {
+        const h = winnerByMatch('initialW1', i);
+        return {a:players[p[0]].robot,b:players[p[1]].robot,winner:h ? h.winner : ''};
+      });
+      rounds.push(liveRound('RONDA 1', first));
       let advancing = n - firstWCount;
       let roundNo = 2;
       if (byes > 0) {
         const secondCount = Math.floor(advancing / 2);
-        rounds.push(bracketRound('RONDA 2', Array.from({length:secondCount},()=>['','']), 2, false));
+        const second = stageMatches('initialW2');
+        while (second.length < secondCount) second.push({a:'',b:'',winner:''});
+        rounds.push(liveRound('RONDA 2', second.slice(0,secondCount)));
         advancing = secondCount + (advancing % 2);
         roundNo = 3;
       }
+      let mainRound = 0;
       while (advancing > 1) {
         const matches = Math.floor(advancing / 2);
-        rounds.push(bracketRound('RONDA ' + roundNo, Array.from({length:matches},()=>['','']), roundNo, false));
+        const stageRows = stageMatches('mainW');
+        const rows = stageRows.slice(mainRound * matches, (mainRound + 1) * matches);
+        while (rows.length < matches) rows.push({a:'',b:'',winner:''});
+        rounds.push(liveRound('RONDA ' + roundNo, rows));
         advancing = matches + (advancing % 2);
         roundNo++;
+        mainRound++;
       }
     } else {
       // Predict the number/order of initial losses using the same insertion rule as combates.py.
@@ -403,11 +441,18 @@
       const response = await fetch("/api/tournament/debug-state");
       if (!response.ok) return;
       const data = await response.json();
-      if ((!data.state || data.state.engineVersion !== 1) && tournament.started) {
-        await refreshParticipants();
-        tournament = freshState();
-        tournament.logs = [{message:"El torneo se reinició por un cambio en los participantes.",kind:"system"}];
-        syncManagementState();
+      if (!data.state || data.state.engineVersion !== 1) {
+        if (tournament.started) {
+          await refreshParticipants();
+          tournament = freshState();
+          tournament.logs = [{message:"El torneo se reinició por un cambio en los participantes.",kind:"system"}];
+          syncManagementState();
+          render();
+        }
+        return;
+      }
+      if (JSON.stringify(data.state) !== JSON.stringify(tournament)) {
+        tournament = data.state;
         render();
       }
     } catch (_) {}
