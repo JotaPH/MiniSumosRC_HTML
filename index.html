@@ -467,6 +467,30 @@ body.view-subpage{overflow:auto!important}
     padding-left:8px!important;padding-right:18px!important;
   }
 }
+
+/* PRUEBA DE PROPORCIONES: ID 10%, nombre 30%, peso 20%, validación 20%, acciones 20% */
+@media(min-width:651px){
+  #managementViews #participantsView table.mgmt-table{
+    width:100%!important;
+    min-width:0!important;
+    table-layout:fixed!important;
+  }
+  #managementViews #participantsView .mgmt-table th:nth-child(1),
+  #managementViews #participantsView .mgmt-table td:nth-child(1){width:10%!important;min-width:0!important;max-width:none!important;padding-left:8px!important;padding-right:8px!important}
+  #managementViews #participantsView .mgmt-table th:nth-child(2),
+  #managementViews #participantsView .mgmt-table td:nth-child(2){width:30%!important;padding-left:10px!important;padding-right:10px!important}
+  #managementViews #participantsView .mgmt-table th:nth-child(3),
+  #managementViews #participantsView .mgmt-table td:nth-child(3){width:20%!important;padding-left:8px!important;padding-right:8px!important}
+  #managementViews #participantsView .mgmt-table th:nth-child(4),
+  #managementViews #participantsView .mgmt-table td:nth-child(4){width:20%!important;padding-left:8px!important;padding-right:8px!important}
+  #managementViews #participantsView .mgmt-table th:nth-child(5),
+  #managementViews #participantsView .mgmt-table td:nth-child(5){width:20%!important;padding-left:8px!important;padding-right:8px!important}
+}
+@media(max-width:650px){
+  /* En móvil se conserva la presentación adaptable por tarjetas */
+  #managementViews #participantsView .mgmt-table td:nth-child(n){width:auto!important;min-width:0!important;max-width:none!important}
+  #managementViews #participantsView .mgmt-table td:first-child{padding-left:8px!important;padding-right:8px!important}
+}
 </style>
 </head>
 <body>
