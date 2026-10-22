@@ -37,6 +37,16 @@
     "#tournamentDebug .td-entry-header{background:transparent;border-bottom:1px solid #31516c;border-radius:0;padding:5px 10px 9px;margin-top:0}",
     "#tournamentDebug .td-entry-header strong:first-child{grid-column:1;grid-row:1;font-size:12px;color:#a8bbcf;text-align:center}",
     "#tournamentDebug .td-entry-header strong:last-child{grid-column:2;grid-row:1;font-size:12px;color:#a8bbcf;text-align:center}",
+    "#tournamentDebug .td-bracket{display:flex;align-items:stretch;gap:16px;overflow-x:auto;padding:10px 2px 16px;min-height:170px}",
+    "#tournamentDebug .td-bracket-round{display:flex;flex-direction:column;justify-content:space-around;gap:12px;min-width:178px;flex:1;position:relative}",
+    "#tournamentDebug .td-bracket-round:not(:last-child):after{content:'';position:absolute;right:-9px;top:28px;bottom:28px;border-right:1px solid #31516c}",
+    "#tournamentDebug .td-bracket-round-title{text-align:center;color:#70eaff;font-size:12px;font-weight:800;letter-spacing:.6px;margin-bottom:3px}",
+    "#tournamentDebug .td-bracket-match{position:relative;background:#0a1b2d;border:1px solid #31516c;border-radius:9px;padding:7px 8px 7px 28px;min-width:0}",
+    "#tournamentDebug .td-bracket-match-id{position:absolute;left:7px;top:50%;font-size:10px;color:#ffe66d;font-weight:800;writing-mode:vertical-rl;transform:translateY(-50%) rotate(180deg)}",
+    "#tournamentDebug .td-bracket-slot{font-size:12px;line-height:1.35;padding:6px 5px;color:#8fa4b8;overflow-wrap:anywhere;border-bottom:1px solid #20384d;min-height:28px}",
+    "#tournamentDebug .td-bracket-slot:last-child{border-bottom:0}",
+    "#tournamentDebug .td-bracket-slot.filled{color:#fff;font-weight:700}",
+    "#tournamentDebug .td-bracket-empty{color:#92a7bb;text-align:center;padding:28px 10px;font-size:13px}",
     "#tournamentDebug .td-empty{color:#92a7bb;padding:12px 0}",
     "#tournamentDebug .td-history{max-height:320px;overflow:auto}",
     "#tournamentDebug .td-history-row{display:grid;grid-template-columns:44px minmax(0,1fr) auto;align-items:center;gap:10px;border-bottom:1px solid #20384d;padding:10px 0;font-size:15px}",
@@ -117,6 +127,83 @@
     logLine("-".repeat(55));
     logLine("Combates acumulados del torneo: " + tournament.matches, "system");
   }
+  function bracketRound(title, matches) {
+    return '<div class="td-bracket-round"><div class="td-bracket-round-title">' + esc(title) + '</div>' +
+      (matches.length ? matches.map((m, i) =>
+        '<div class="td-bracket-match"><div class="td-bracket-match-id">B' + (i + 1) + '</div>' +
+        '<div class="td-bracket-slot ' + (m[0] ? 'filled' : '') + '">' + esc(m[0] || 'Por definir') + '</div>' +
+        '<div class="td-bracket-slot ' + (m[1] ? 'filled' : '') + '">' + esc(m[1] || 'Por definir') + '</div></div>'
+      ).join('') : '<div class="td-empty">Sin combates en esta ronda</div>') + '</div>';
+  }
+
+  function bracketMarkup(branch) {
+    const players = (tournament && tournament.players || []).slice().sort((a,b)=>a.index-b.index);
+    if (!tournament || !tournament.started || players.length < 2) {
+      return '<div class="td-bracket-empty">Inicia el torneo para calcular las llaves.</div>';
+    }
+    const n = players.length;
+    let capacity = 1;
+    while (capacity < n) capacity *= 2;
+    const byes = capacity - n;
+    const fights = (n - byes) / 2;
+    const pairs = [];
+    let left = 0, right = n - 1;
+    while (pairs.length < fights && left < right) {
+      pairs.push([left, left + 1]);
+      left += 2;
+      if (pairs.length >= fights || left >= right) break;
+      pairs.push([right - 1, right]);
+      right -= 2;
+    }
+    const paired = new Set(pairs.flat());
+    const names = players.map(p => p.robot);
+    const isW = branch === 'W';
+    const rounds = [];
+    if (isW) {
+      rounds.push(bracketRound('RONDA 1', pairs.map(p=>[names[p[0]], names[p[1]]])));
+      const afterR1 = [];
+      pairs.forEach((p, i) => afterR1.push('Ganador B' + (i + 1)));
+      names.forEach((name, i) => { if (!paired.has(i)) afterR1.push(name); });
+      if (byes > 0) {
+        const r2Pairs = [];
+        for (let i=0;i+1<afterR1.length;i+=2) r2Pairs.push([afterR1[i], afterR1[i+1]]);
+        rounds.push(bracketRound('RONDA 2', r2Pairs));
+      }
+      let count = byes > 0 ? Math.ceil(afterR1.length / 2) : fights;
+      let roundNo = byes > 0 ? 3 : 2;
+      while (count > 1) {
+        count = Math.ceil(count / 2);
+        rounds.push(bracketRound('RONDA ' + roundNo, Array.from({length:count},()=>['Ganador anterior','Ganador anterior'])));
+        roundNo++;
+      }
+    } else {
+      const l1Count = Math.floor(fights / 2);
+      const l1Capacity = fights - l1Count;
+      const l1Pairs = [];
+      let li = 0, ri = fights - 1;
+      while (l1Pairs.length < l1Count && li < ri) {
+        l1Pairs.push(['Perdedor B' + (l1Pairs.length + 1), 'Perdedor B' + (fights - l1Pairs.length)]);
+        li += 2; ri -= 2;
+      }
+      rounds.push(bracketRound('RONDA 1', l1Pairs));
+      let remaining = fights - l1Pairs.length + (byes > 0 ? Math.floor((n - byes) / 2) : 0);
+      let roundNo = 2;
+      if (byes > 0 && remaining > 1) {
+        const l2Matches = Math.floor(remaining / 2);
+        rounds.push(bracketRound('RONDA 2', Array.from({length:l2Matches},(_,i)=>['Ganador R1', 'Perdedor W-R2 ' + (i+1)])));
+        remaining = remaining - l2Matches;
+        roundNo = 3;
+      }
+      while (remaining > 1) {
+        const next = Math.floor(remaining / 2);
+        rounds.push(bracketRound('RONDA ' + roundNo, Array.from({length:next},()=>['Ganador anterior','Perdedor de ganadores'])));
+        remaining -= next;
+        roundNo++;
+      }
+    }
+    return '<div class="td-bracket" aria-label="Llave de ' + (isW ? 'ganadores' : 'perdedores') + '">' + rounds.join('') + '</div>';
+  }
+
   function render() {
     ensurePanel();
     if (!tournament || !$("tournamentDebug")) return;
@@ -156,15 +243,10 @@
     $("tdWin2").disabled = !tournament.started || !current || busy || tournament.phase === "finished";
     $("tdStart").textContent = tournament.started ? "Torneo iniciado" : "Iniciar torneo";
     $("tdStart").disabled = !!tournament.started && tournament.phase !== "finished";
-    const renderList = ids => (ids || []).map(slot).filter(Boolean).map(s => {
-      const p = player(s.robot_id);
-      return '<div class="td-entry"><span class="td-index">' + esc(s.label) + '</span><strong>' +
-        esc(p ? p.robot : "—") + '</strong><span class="td-muted">' + esc(p ? p.pilot : "") + '</span></div>';
-    }).join("") || '<div class="td-empty">Vacío</div>';
     $("tdWCount").textContent = (tournament.winners || []).length;
     $("tdLCount").textContent = (tournament.losers || []).length;
-    $("tdWinners").innerHTML = renderList(tournament.winners);
-    $("tdLosers").innerHTML = renderList(tournament.losers);
+    $("tdWinners").innerHTML = bracketMarkup("W");
+    $("tdLosers").innerHTML = bracketMarkup("L");
     const historyRows = [];
     let lastStage = null, winnersRound = 0, losersRound = 0;
     (tournament.history || []).forEach(h => {
