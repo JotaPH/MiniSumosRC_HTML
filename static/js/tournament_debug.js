@@ -227,28 +227,49 @@
     });
     stages.push({title:'R1',matches:r1});
 
-    // El motor mantiene el orden de los slots en winners y reemplaza la pareja por el ganador.
-    const winnersIds = (tournament.winners || []).slice();
+    // Las rondas futuras no deben listar el arreglo winners como si fueran combates.
+    // Solo mostramos participantes de enfrentamientos reales ya programados o jugados.
     const hasByes = capacity - n > 0;
-    const r2 = Array.from({length:capacity/4},()=>({a:'',b:'',winner:''}));
-    const r2History = historyFor(hasByes ? 'initialW2' : 'mainW');
-    const usedR2 = new Set();
-    for(let i=0;i<r2.length;i++) {
-      const aId=winnersIds[2*i], bId=winnersIds[2*i+1];
-      if(aId && bId) r2[i]=matchFor(aId,bId,r2History,usedR2);
-    }
+    const scheduledPairs = stage => {
+      const done = historyFor(stage).map(h => ({a:h.a || '', b:h.b || '', winner:h.winner || ''}));
+      const pending = [];
+      if (tournament.current && tournament.current.stage === stage) pending.push(tournament.current);
+      (tournament.queue || []).forEach(m => {
+        if (m.stage === stage && !pending.some(q => q.a === m.a && q.b === m.b)) pending.push(m);
+      });
+      return done.concat(pending.map(m => ({
+        a: getName(m.a), b: getName(m.b), winner: ''
+      })));
+    };
+    const slotRobotId = id => {
+      const sl = slot(id);
+      return sl ? sl.robot_id : null;
+    };
+    const robotName = id => {
+      const sl = slot(id);
+      const p = sl && player(sl.robot_id);
+      return p ? p.robot : '';
+    };
+    const currentStage = tournament.stage || '';
+    const r2Count = capacity / 4;
+    const r2 = Array.from({length:r2Count},()=>({a:'',b:'',winner:''}));
+    const r2Stage = hasByes ? 'initialW2' : 'mainW';
+    const liveR2 = scheduledPairs(r2Stage);
+    liveR2.slice(0,r2Count).forEach((m,i)=>{r2[i]=m;});
+    // Mientras R1 siga en curso, los huecos de R2 permanecen vacíos;
+    // no se dibujan los participantes iniciales como si ya fueran cruces confirmados.
     stages.push({title:'R2',matches:r2});
 
     let stageNo=3;
     let matchesInRound=capacity/8;
     let mainOffset=0;
     while(matchesInRound>=1 && stageNo<=roundCount) {
-      const allMain=historyFor('mainW');
-      const rows=Array.from({length:matchesInRound},(_,i)=>{
-        const h=allMain[mainOffset+i];
-        return h ? {a:h.a||'',b:h.b||'',winner:h.winner||''} : {a:'',b:'',winner:''};
+      const live = scheduledPairs('mainW');
+      const roundRows=Array.from({length:matchesInRound},(_,i)=>{
+        const h=live[mainOffset+i];
+        return h ? h : {a:'',b:'',winner:''};
       });
-      stages.push({title:'R'+stageNo,matches:rows});
+      stages.push({title:'R'+stageNo,matches:roundRows});
       mainOffset+=matchesInRound;
       matchesInRound=Math.floor(matchesInRound/2);
       stageNo++;
