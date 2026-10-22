@@ -616,7 +616,7 @@ let mgmt={participants:[],nextId:1,editing:null,started:false,stats:{},current:n
 async function loadDbParticipants(){try{const rows=await api('/api/participants');mgmt.participants=rows.map(p=>({...p,checks:[...p.checks]}));mgmt.nextId=Math.max(0,...mgmt.participants.map(p=>p.id))+1;renderManagement()}catch(error){alert('No se pudieron cargar los participantes desde SQLite: '+error.message)}}
 loadDbParticipants();
 function mgmtEsc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
-function mgmtStat(p){return mgmt.stats[p.id]||(mgmt.stats[p.id]={series:0,losses:0,wins:0,lastPct:null,lastAvg:null,round:0})}
+function mgmtStat(p){return mgmt.stats[p.id]||(mgmt.stats[p.id]={series:0,losses:0,wins:0,round:0})}
 function mgmtValid(p){return Number(p.weight)>0&&Number(p.weight)<=500&&p.checks.every(Boolean)}
 function mgmtAlive(){return mgmt.participants.filter(mgmtValid).filter(p=>!p.eliminated)}
 function mgmtW(){const order=mgmt.winnersOrder||mgmt.bracketOrder||[];return mgmtAlive().filter(p=>mgmtStat(p).losses===0).sort((a,b)=>order.indexOf(a.id)-order.indexOf(b.id))}
