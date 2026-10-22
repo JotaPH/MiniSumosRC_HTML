@@ -492,24 +492,32 @@ body.view-subpage{overflow:auto!important}
   #managementViews #participantsView .mgmt-table td:first-child{padding-left:8px!important;padding-right:8px!important;text-align:center!important}
 }
 
-/* El ID ocupa exactamente su 10%: sin márgenes heredados y con contenido centrado */
-#managementViews #participantsView .mgmt-table th:first-child,
-#managementViews #participantsView .mgmt-table td:first-child{
+/* Corrección definitiva ID: vence las reglas antiguas de alineación a la izquierda */
+#managementViews #participantsView table.mgmt-table th.mgmt-number-head,
+#managementViews #participantsView table.mgmt-table th:first-child{
   width:10%!important;
   min-width:0!important;
   max-width:none!important;
-  padding-left:0!important;
-  padding-right:0!important;
+  padding:14px 0!important;
   text-align:center!important;
+  text-align-last:center!important;
   text-indent:0!important;
   box-sizing:border-box!important;
 }
-#managementViews #participantsView .mgmt-table th:first-child{
+#managementViews #participantsView table.mgmt-table td.mgmt-number-cell,
+#managementViews #participantsView table.mgmt-table td:first-child{
+  width:10%!important;
+  min-width:0!important;
+  max-width:none!important;
+  padding:14px 0!important;
   text-align:center!important;
-}
-#managementViews #participantsView .mgmt-table td:first-child{
-  display:table-cell!important;
+  text-align-last:center!important;
+  text-indent:0!important;
+  box-sizing:border-box!important;
   vertical-align:middle!important;
+}
+#managementViews #participantsView table.mgmt-table th.mgmt-number-head{
+  display:table-cell!important;
 }
 </style>
 </head>
