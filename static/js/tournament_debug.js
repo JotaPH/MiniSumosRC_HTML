@@ -50,6 +50,15 @@
     "#tournamentDebug .td-bracket-slot.filled{color:#fff;font-weight:700}",
     "#tournamentDebug .td-bracket-winner{color:#8ff0ae!important;background:#123b31;font-weight:900;border-radius:4px;padding-left:7px;",
     "#tournamentDebug .td-bracket-empty{color:#92a7bb;text-align:center;padding:28px 10px;font-size:13px}",
+    "#tournamentDebug .td-bracket-grid{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(105px,1fr);gap:0;overflow-x:auto;padding:12px 4px 18px;align-items:stretch;min-width:0}",
+    "#tournamentDebug .td-grid-round{display:grid;position:relative;min-width:105px}",
+    "#tournamentDebug .td-grid-title{grid-row:1;position:sticky;top:0;text-align:center;color:#70eaff;font-size:12px;font-weight:800;padding:5px 0 10px;background:#071323;z-index:2}",
+    "#tournamentDebug .td-grid-match{align-self:center;display:flex;flex-direction:column;justify-content:center;position:relative;margin:0 5px;min-width:0;border:1px solid #31516c;border-radius:5px;background:#0a1b2d}",
+    "#tournamentDebug .td-grid-match:after{content:'';position:absolute;left:100%;top:50%;width:6px;border-top:1px solid #6c8aa5}",
+    "#tournamentDebug .td-grid-slot{font-size:11px;line-height:1.25;padding:5px 3px;min-height:22px;overflow-wrap:anywhere;border-bottom:1px solid #20384d;color:#8fa4b8}",
+    "#tournamentDebug .td-grid-slot:last-child{border-bottom:0}",
+    "#tournamentDebug .td-grid-slot.filled{color:#fff;font-weight:700}",
+    "#tournamentDebug .td-grid-winner{background:#123b31;color:#8ff0ae!important;font-weight:900}",
     "#tournamentDebug .td-empty{color:#92a7bb;padding:12px 0}",
     "#tournamentDebug .td-history{max-height:320px;overflow:auto}",
     "#tournamentDebug .td-history-row{display:grid;grid-template-columns:44px minmax(0,1fr) auto;align-items:center;gap:10px;border-bottom:1px solid #20384d;padding:10px 0;font-size:15px}",
@@ -145,10 +154,55 @@
     if (!tournament || players.length < 2) {
       return '<div class="td-bracket-empty">Se necesitan al menos dos participantes válidos.</div>';
     }
+    if (branch !== 'W') {
+      // La llave de Perdedores se deja intacta en esta corrección.
+      const n = players.length;
+      const capacity = 2 ** Math.ceil(Math.log2(n));
+      const byes = capacity - n;
+      const firstWCount = (n - byes) / 2;
+      const totalInitialW = firstWCount + (byes > 0 ? Math.floor((n - firstWCount) / 2) : 0);
+      const loserCount = totalInitialW;
+      const lCapacity = 2 ** Math.ceil(Math.log2(Math.max(1, loserCount)));
+      const lByes = lCapacity - loserCount;
+      const lFirstCount = (loserCount - lByes) / 2;
+      const rounds = [];
+      let advancing = loserCount;
+      let roundNo = 1;
+      while (advancing > 1) {
+        let matches;
+        if (roundNo === 1) matches = lFirstCount;
+        else if (roundNo === 2 && byes > 0) matches = Math.floor((loserCount - lFirstCount) / 2);
+        else matches = Math.floor(advancing / 2);
+        rounds.push(bracketRound('RONDA ' + roundNo, Array.from({length:matches},()=>['','']), roundNo, roundNo === 1));
+        advancing = matches + (advancing % 2);
+        roundNo++;
+      }
+      return '<div class="td-bracket" aria-label="Llave de perdedores">' + rounds.join('') + '</div>';
+    }
+
     const n = players.length;
     const capacity = 2 ** Math.ceil(Math.log2(n));
-    const byes = capacity - n;
-    const firstWCount = (n - byes) / 2;
+    const roundCount = Math.log2(capacity);
+    const rows = capacity * 2 - 1;
+    const node = (name, winner = false, extra = '') =>
+      '<div class="td-grid-slot ' + (name ? 'filled ' : 'empty ') + (winner ? 'td-grid-winner ' : '') + extra + '">' +
+      (name ? esc(name) + (winner ? ' ✓' : '') : '&nbsp;') + '</div>';
+    const getName = id => {
+      const s = slot(id);
+      const p = s && player(s.robot_id);
+      return p ? p.robot : '';
+    };
+    const historyFor = stage => (tournament.history || []).filter(h => h.round === stage);
+    const matchesFor = stage => {
+      const done = historyFor(stage).map(h => ({a:h.a || '', b:h.b || '', winner:h.winner || ''}));
+      const queued = [];
+      if (tournament.current && tournament.current.stage === stage) queued.push(tournament.current);
+      (tournament.queue || []).forEach(m => {
+        if (m.stage === stage && !queued.some(q => q.a === m.a && q.b === m.b)) queued.push(m);
+      });
+      return done.concat(queued.map(m => ({a:getName(m.a), b:getName(m.b), winner:''})));
+    };
+    const firstWCount = (n - (capacity - n)) / 2;
     const extremePairs = (count, amount) => {
       const out = [];
       let left = 0, right = count - 1;
@@ -161,92 +215,56 @@
       }
       return out;
     };
-    const rounds = [];
-    if (branch === 'W') {
-      const nameForSlot = id => {
-        const s = slot(id);
-        const p = s && player(s.robot_id);
-        return p ? p.robot : '';
-      };
-      const winnerByMatch = (stage, index) => {
-        const rows = (tournament.history || []).filter(h => h.round === stage);
-        return rows[index] || null;
-      };
-      const stageMatches = stage => {
-        const played = (tournament.history || []).filter(h => h.round === stage)
-          .map(h => ({a:h.a || '', b:h.b || '', winner:h.winner || ''}));
-        const pending = [];
-        const queue = [];
-        if (tournament.current && tournament.current.stage === stage) queue.push(tournament.current);
-        (tournament.queue || []).forEach(m => { if (m.stage === stage && (!tournament.current || m.a !== tournament.current.a || m.b !== tournament.current.b)) queue.push(m); });
-        queue.forEach(m => pending.push({a:nameForSlot(m.a), b:nameForSlot(m.b), winner:''}));
-        return played.concat(pending);
-      };
-      const matchCard = (m, i) => {
-        const row = (name, winner) => '<div class="td-bracket-slot ' + (name ? 'filled' : 'empty') + (winner ? ' td-bracket-winner' : '') + '">' + (name ? esc(name) : '&nbsp;') + (winner ? ' ✓' : '') + '</div>';
-        return '<div class="td-bracket-match"><div class="td-bracket-match-id">' + (i + 1) + '</div>' + row(m.a, !!m.winner && m.winner === m.a) + row(m.b, !!m.winner && m.winner === m.b) + '</div>';
-      };
-      const liveRound = (title, matches) => '<div class="td-bracket-round"><div class="td-bracket-round-title">' + title + '</div>' +
-        (matches.length ? matches.map(matchCard).join('') : '<div class="td-empty">Por jugar</div>') + '</div>';
-      const firstPairs = extremePairs(n, firstWCount);
-      const first = firstPairs.map((p,i) => {
-        const h = winnerByMatch('initialW1', i);
-        return {a:players[p[0]].robot,b:players[p[1]].robot,winner:h ? h.winner : ''};
-      });
-      rounds.push(liveRound('RONDA 1', first));
-      let advancing = n - firstWCount;
-      let roundNo = 2;
-      if (byes > 0) {
-        const secondCount = Math.floor(advancing / 2);
-        const second = stageMatches('initialW2');
-        while (second.length < secondCount) second.push({a:'',b:'',winner:''});
-        rounds.push(liveRound('RONDA 2', second.slice(0,secondCount)));
-        advancing = secondCount + (advancing % 2);
-        roundNo = 3;
-      }
-      let mainOffset = 0;
-      while (advancing > 1) {
-        const matches = Math.floor(advancing / 2);
-        const stageRows = stageMatches('mainW');
-        const rows = stageRows.slice(mainOffset, mainOffset + matches);
-        while (rows.length < matches) rows.push({a:'',b:'',winner:''});
-        rounds.push(liveRound('RONDA ' + roundNo, rows));
-        advancing = matches + (advancing % 2);
-        roundNo++;
-        mainOffset += matches;
-      }
-    } else {
-      // Predict the number/order of initial losses using the same insertion rule as combates.py.
-      const totalInitialW = firstWCount + (byes > 0 ? Math.floor((n - firstWCount) / 2) : 0);
-      const predictedLosses = [];
-      for (let matchNo = 1; matchNo <= totalInitialW; matchNo++) {
-        const item = '';
-        if (matchNo === 1) predictedLosses.unshift(item);
-        else if (matchNo === 2) predictedLosses.push(item);
-        else predictedLosses.splice(Math.min(Math.floor((matchNo - 1) / 2), predictedLosses.length), 0, item);
-      }
-      const loserCount = predictedLosses.length;
-      const lCapacity = 2 ** Math.ceil(Math.log2(Math.max(1, loserCount)));
-      const lByes = lCapacity - loserCount;
-      const lFirstCount = (loserCount - lByes) / 2;
-      const firstPairs = extremePairs(loserCount, lFirstCount);
-      rounds.push(bracketRound('RONDA 1', firstPairs.map(()=>['','']), 1, true));
-      let advancing = loserCount - lFirstCount;
-      let roundNo = 2;
-      if (byes > 0 && advancing > 1) {
-        const secondCount = Math.floor(advancing / 2);
-        rounds.push(bracketRound('RONDA 2', Array.from({length:secondCount},()=>['','']), 2, false));
-        advancing = secondCount + (advancing % 2);
-        roundNo = 3;
-      }
-      while (advancing > 1) {
-        const matches = Math.floor(advancing / 2);
-        rounds.push(bracketRound('RONDA ' + roundNo, Array.from({length:matches},()=>['','']), roundNo, false));
-        advancing = matches + (advancing % 2);
-        roundNo++;
-      }
+    const stages = [];
+    const firstPairs = extremePairs(n, firstWCount);
+    const r1Played = historyFor('initialW1');
+    const r1 = Array.from({length:capacity/2},()=>({a:'',b:'',winner:''}));
+    firstPairs.forEach((pair,i) => {
+      // El motor programa cruces extremos: primero los de la izquierda y luego los de la derecha.
+      const target = pair[0] < n / 2 ? Math.floor(pair[0] / 2) : Math.floor((capacity - (n - pair[0])) / 2);
+      const matchIndex = Math.max(0, Math.min(r1.length - 1, target));
+      const h = r1Played[i];
+      r1[matchIndex] = {a:players[pair[0]].robot,b:players[pair[1]].robot,winner:h ? h.winner : ''};
+    });
+    stages.push({title:'R1', matches:r1});
+
+    const advancingAfterR1 = n - firstWCount;
+    const hasByes = capacity - n > 0;
+    let expectedR2 = hasByes ? Math.floor(advancingAfterR1 / 2) : Math.floor(n / 2);
+    let stage2 = matchesFor(hasByes ? 'initialW2' : 'mainW');
+    const r2 = Array.from({length:capacity/4},()=>({a:'',b:'',winner:''}));
+    stage2.slice(0,expectedR2).forEach((m,i)=>{ r2[i] = m; });
+    stages.push({title:'R2',matches:r2});
+
+    let previousCount = capacity / 4;
+    let stageNo = 3;
+    let mainOffset = 0;
+    while (previousCount > 1 && stageNo <= roundCount) {
+      const count = previousCount / 2;
+      const allMain = matchesFor('mainW');
+      const offset = hasByes ? Math.max(0, expectedR2) + mainOffset : mainOffset;
+      const current = allMain.slice(offset, offset + count);
+      const padded = Array.from({length:count},(_,i)=>current[i] || {a:'',b:'',winner:''});
+      stages.push({title:'R' + stageNo,matches:padded});
+      mainOffset += count;
+      previousCount = count;
+      stageNo++;
     }
-    return '<div class="td-bracket" aria-label="Llave de ' + (branch === 'W' ? 'ganadores' : 'perdedores') + '">' + rounds.join('') + '</div>';
+
+    // Tabla lógica: cada ronda es una columna y cada combate se centra en su bloque de filas.
+    const columns = stages.map((stage, r) => {
+      const span = 2 ** (r + 1);
+      const cards = stage.matches.map((m, i) => {
+        const rowStart = i * span + Math.floor(span / 2) + 1;
+        const winnerA = !!m.winner && m.winner === m.a;
+        const winnerB = !!m.winner && m.winner === m.b;
+        return '<div class="td-grid-match" style="grid-row:' + rowStart + ';grid-row-end:span 1">' +
+          node(m.a, winnerA) + node(m.b, winnerB) + '</div>';
+      }).join('');
+      return '<div class="td-grid-round" style="grid-template-rows:repeat(' + rows + ',minmax(24px,auto))">' +
+        '<div class="td-grid-title">' + stage.title + '</div>' + cards + '</div>';
+    }).join('');
+    return '<div class="td-bracket-grid" style="--bracket-rows:' + rows + '" aria-label="Llave de ganadores">' + columns + '</div>';
   }
 
   function render() {
