@@ -96,10 +96,16 @@ def _extreme_pairs(ids):
     return [(snapshot[a - 1], snapshot[b - 1], side) for a, b, side in cruces_extremos(len(snapshot), count)]
 
 
+def _unpaired_ids(ids, pairs):
+    paired = {sid for a, b, _ in pairs for sid in (a, b)}
+    return [sid for sid in ids if sid not in paired]
+
+
 def _begin_winners1(state):
     state["wRound"] = 1
     state["initialByeCount"] = calcular_llave(len(state["winners"]))[1]
-    _prepare_stage(state, "initialW1", _extreme_pairs(state["winners"]))
+    pairs = _extreme_pairs(state["winners"])
+    _prepare_stage(state, "initialW1", pairs, _unpaired_ids(state["winners"], pairs))
 
 
 def _begin_winners2(state):
@@ -112,7 +118,8 @@ def _begin_losers1(state):
     state["lRound"] = 1
     for sid in state["losers"]:
         _slot(state, sid)["ha_combatido"] = False
-    _prepare_stage(state, "initialL1", _extreme_pairs(state["losers"]))
+    pairs = _extreme_pairs(state["losers"])
+    _prepare_stage(state, "initialL1", pairs, _unpaired_ids(state["losers"], pairs))
 
 
 def _begin_losers2(state):
@@ -132,7 +139,8 @@ def _begin_winners_round(state):
 
 def _begin_internal_losers(state):
     state["lRound"] += 1
-    _prepare_stage(state, "internalL", _extreme_pairs(state["losers"]))
+    pairs = _extreme_pairs(state["losers"])
+    _prepare_stage(state, "internalL", pairs, _unpaired_ids(state["losers"], pairs))
 
 
 def _begin_final(state):
