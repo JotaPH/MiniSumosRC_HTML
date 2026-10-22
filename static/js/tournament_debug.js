@@ -141,8 +141,8 @@
 
   function bracketMarkup(branch) {
     const players = (tournament && tournament.players || []).slice().sort((a,b)=>a.index-b.index);
-    if (!tournament || !tournament.started || players.length < 2) {
-      return '<div class="td-bracket-empty">Inicia el torneo para calcular las llaves.</div>';
+    if (!tournament || players.length < 2) {
+      return '<div class="td-bracket-empty">Se necesitan al menos dos participantes válidos.</div>';
     }
     const n = players.length;
     const capacity = 2 ** Math.ceil(Math.log2(n));
@@ -196,7 +196,7 @@
       rounds.push(bracketRound('RONDA 1', firstPairs.map(()=>['','']), 1, true));
       let advancing = loserCount - lFirstCount;
       let roundNo = 2;
-      if (lByes > 0) {
+      if (byes > 0 && advancing > 1) {
         const secondCount = Math.floor(advancing / 2);
         rounds.push(bracketRound('RONDA 2', Array.from({length:secondCount},()=>['','']), 2, false));
         advancing = secondCount + (advancing % 2);
