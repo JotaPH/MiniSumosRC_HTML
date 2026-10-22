@@ -145,7 +145,18 @@
 
     if (!initial && direction === "desc") pool.reverse();
     const pairs = [];
-    for (let i=0; i+1<pool.length; i+=2) pairs.push([pool[i].id,pool[i+1].id]);
+    for (let i = 0; i + 1 < pool.length; i += 2) {
+      const first = pool[i];
+      const second = pool[i + 1];
+
+      // En recorrido descendente se conserva el cruce, pero R1 debe ser
+      // el participante de menor índice y R2 el de mayor índice.
+      if (!initial && direction === "desc") {
+        pairs.push([second.id, first.id]);
+      } else {
+        pairs.push([first.id, second.id]);
+      }
+    }
     return {pairs,byeIds,byeOccurred:byeIds.length>0};
   }
 
