@@ -56,4 +56,4 @@ Para conservar los datos del paquete portátil, mantén la carpeta extraída y h
 
 ## Alcance funcional
 
-La interfaz incluye el dashboard, páginas de ataques, marcador y vistas de gestión. Algunas interacciones de las pantallas nuevas siguen siendo demostrativas y no todas las acciones de torneo están integradas con la base SQLite o con el ESP32. Antes de usarlo en una competencia oficial, valida las reglas de emparejamiento, el registro de resultados y el flujo completo con pruebas reales.
+La interfaz incluye el dashboard, páginas de ataques, marcador y vistas de gestión. La vista **Ganadores / Perdedores** incluye una simulación provisional de doble eliminación: índices promedio con tres decimales, ajuste de índices repetidos, rondas Winners/Lossers, byes, final y final decisiva, historial y consola de eventos. Su estado de prueba se guarda en la tabla `torneo_debug` de esta misma base SQLite. Esta simulación no registra combates oficiales ni controla el ESP32; valida el flujo completo antes de usarlo en una competencia real.
