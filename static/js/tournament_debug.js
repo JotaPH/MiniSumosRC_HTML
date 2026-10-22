@@ -49,12 +49,11 @@
     const panel = document.createElement("section");
     panel.id = "tournamentDebug";
     panel.innerHTML =
-      '<div class="td-panel"><div class="td-head"><div><h2>PRUEBA DE TORNEO · DOBLE ELIMINACIÓN</h2><div class="td-muted">Rutina Python: los resultados avanzan por ID de robot y número de batalla.</div></div><span class="td-badge" id="tdStatus">SIN INICIAR</span></div>' +
+      '<div class="td-panel"><div class="td-head"><div><h2>Estado del torneo</h2></div><span class="td-badge" id="tdStatus">SIN INICIAR</span></div>' +
       '<div class="td-stats"><div class="td-stat"><small>Ronda actual</small><strong id="tdRound">—</strong></div><div class="td-stat"><small>Combates acumulados</small><strong id="tdCount">0</strong></div><div class="td-stat"><small>Participantes válidos</small><strong id="tdValid">0</strong></div><div class="td-stat"><small>Byes de esta ronda</small><strong id="tdBye">—</strong></div></div>' +
-      '<div class="td-panel"><div class="td-head"><h3>ENFRENTAMIENTO ACTUAL</h3><span class="td-muted" id="tdDirection">Esperando inicio</span></div><div id="tdMatch"><div class="td-empty">Pulsa “Iniciar torneo” para preparar la primera ronda.</div></div><div class="td-actions"><button id="tdWin1" disabled>Gana R1</button><button id="tdWin2" disabled>Gana R2</button></div></div>' +
-      '<div class="td-tables"><div class="td-panel td-table"><div class="td-head"><h3>WINNERS</h3><span class="td-badge" id="tdWCount">0</span></div><div id="tdWinners"></div></div><div class="td-panel td-table"><div class="td-head"><h3>LOSSERS</h3><span class="td-badge" id="tdLCount">0</span></div><div id="tdLosers"></div></div></div>' +
-      '<div class="td-panel"><div class="td-head"><h3>REGISTRO DE PRUEBA</h3><span class="td-muted">Historial de resultados</span></div><div id="tdHistory" class="td-history"><div class="td-empty">Todavía no hay combates registrados.</div></div><div class="td-actions"><button id="tdStart">Iniciar torneo</button><button id="tdReset">Reiniciar prueba</button></div><p class="td-note">Al iniciar se activa la bandera de torneo iniciado. Agregar, editar o eliminar participantes deberá pedir confirmación para reiniciar la competencia. Estos botones registran el ganador de cada combate en la rutina Python; no inician el ESP32.</p></div>' +
-      '<div class="td-panel"><div class="td-head"><h3>CONSOLA DE SIMULACIÓN</h3><span class="td-muted">Mensajes de etapas, cruces y resultados</span></div><div id="tdConsole" class="td-console" role="log" aria-live="polite"><div class="td-console-line system">La salida de la simulación aparecerá aquí.</div></div></div></div>';
+      '<div class="td-panel"><div class="td-head"><h3>ENFRENTAMIENTO ACTUAL</h3></div><div id="tdMatch"><div class="td-empty"></div></div><div class="td-actions"><button id="tdWin1" disabled>Gana R1</button><button id="tdWin2" disabled>Gana R2</button></div></div>' +
+      '<div class="td-tables"><div class="td-panel td-table"><div class="td-head"><h3>GANADORES</h3><span class="td-badge" id="tdWCount">0</span></div><div id="tdWinners"></div></div><div class="td-panel td-table"><div class="td-head"><h3>PERDEDORES</h3><span class="td-badge" id="tdLCount">0</span></div><div id="tdLosers"></div></div></div>' +
+      '<div class="td-panel"><div class="td-head"><h3>HISTORIAL DE SERIES</h3></div><div id="tdHistory" class="td-history"><div class="td-empty">Todavía no hay combates registrados.</div></div><div class="td-actions"><button id="tdStart">Iniciar torneo</button><button id="tdReset">Reiniciar prueba</button></div></div></div>';
     const description = view.querySelector(".mgmt-description");
     if (description) description.insertAdjacentElement("afterend", panel);
     else view.prepend(panel);
@@ -125,7 +124,6 @@
     $("tdValid").textContent = (tournament.players || []).length;
     $("tdBye").textContent = round && round.byeIds && round.byeIds.length
       ? round.byeIds.map(id => slot(id)?.label || id).join(", ") : "—";
-    $("tdDirection").textContent = "Rutina ejecutada en Python · sin promedios";
     const aSlot = current && slot(current.a), bSlot = current && slot(current.b);
     const a = current && slotPlayer(current.a), b = current && slotPlayer(current.b);
     if (a && b) {
@@ -137,9 +135,9 @@
       const champ = player(tournament.champion);
       $("tdMatch").innerHTML = '<div class="td-empty">🏆 Campeón: <strong>' + esc(champ ? champ.robot : "—") + '</strong></div>';
     } else if (tournament.phase === "ready") {
-      $("tdMatch").innerHTML = '<div class="td-empty">Pulsa “Iniciar torneo” para cargar los participantes y comenzar la rutina Python.</div>';
+      $("tdMatch").innerHTML = '<div class="td-empty"></div>';
     } else {
-      $("tdMatch").innerHTML = '<div class="td-empty">No hay enfrentamiento preparado.</div>';
+      $("tdMatch").innerHTML = '<div class="td-empty"></div>';
     }
     $("tdWin1").textContent = a ? "Gana " + a.robot : "Gana R1";
     $("tdWin2").textContent = b ? "Gana " + b.robot : "Gana R2";
@@ -156,18 +154,33 @@
     $("tdLCount").textContent = (tournament.losers || []).length;
     $("tdWinners").innerHTML = renderList(tournament.winners);
     $("tdLosers").innerHTML = renderList(tournament.losers);
-    $("tdHistory").innerHTML = (tournament.history || []).slice().reverse().map((h,i) =>
-      '<div class="td-history-row"><strong>' + esc(h.total) + '</strong><span>' + esc(h.round) + ' · ' +
-      esc(h.a) + ' vs ' + esc(h.b) + '<br><span class="td-muted">Ganó ' + esc(h.winner) +
-      '</span></span><strong>' + esc(h.total) + '</strong></div>'
-    ).join("") || '<div class="td-empty">Todavía no hay combates registrados.</div>';
-    const consoleBox = $("tdConsole");
-    if (consoleBox) {
-      const lines = (tournament.logs || []).slice(-500);
-      consoleBox.innerHTML = lines.map(line => '<div class="td-console-line ' + esc(line.kind || "") + '">' +
-        esc(line.message) + '</div>').join("") || '<div class="td-console-line system">La salida de la rutina Python aparecerá aquí.</div>';
-      consoleBox.scrollTop = consoleBox.scrollHeight;
-    }
+    const historyRows = [];
+    let lastStage = null, winnersRound = 0, losersRound = 0;
+    (tournament.history || []).forEach(h => {
+      const stage = String(h.round || "");
+      if (stage !== lastStage) {
+        if (["initialW1","initialW2","mainW"].includes(stage)) winnersRound++;
+        if (["initialL1","initialL2","internalL","main"].includes(stage)) losersRound++;
+        lastStage = stage;
+      }
+      let roundLabel = stage;
+      if (stage === "initialW1") roundLabel = "Ganadores - R1";
+      else if (stage === "initialW2") roundLabel = "Ganadores - R2";
+      else if (stage === "initialL1") roundLabel = "Perdedores - R1 (Ganadores R1)";
+      else if (stage === "initialL2") roundLabel = "Perdedores - R2 (Ganadores R2)";
+      else if (stage === "mainW") roundLabel = "Ganadores - R" + Math.max(2, winnersRound);
+      else if (stage === "internalL" || stage === "main") roundLabel = "Perdedores - R" + Math.max(1, losersRound);
+      else if (stage === "final") roundLabel = "Gran final";
+      else if (stage === "finalReset") roundLabel = "Revancha final";
+      historyRows.push({h,roundLabel});
+    });
+    $("tdHistory").innerHTML = historyRows.slice().reverse().map(({h,roundLabel}) =>
+      '<div class="td-history-row"><span class="td-history-number">' + esc(h.total) +
+      '</span><div class="td-history-details"><div class="td-history-round">' + esc(roundLabel) +
+      '</div><div class="td-history-robots">' + esc(h.a) + ' <span>vs</span> ' + esc(h.b) +
+      '</div><div class="td-history-winner">Ganó <strong>' + esc(h.winner) +
+      '</strong></div></div><strong class="td-history-score">' + esc(h.score || "—") + '</strong></div>'
+    ).join("") || '<div class="td-empty">Todavía no hay series registradas.</div>';
   }
 
   async function refreshParticipants() {
