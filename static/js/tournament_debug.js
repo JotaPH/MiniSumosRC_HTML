@@ -184,6 +184,8 @@
     const capacity = 2 ** Math.ceil(Math.log2(n));
     const roundCount = Math.log2(capacity);
     const rows = capacity * 2 - 1;
+    const firstWCount = (n - (capacity - n)) / 2;
+    const stages = [];
     const node = (name, winner = false, extra = '') =>
       '<div class="td-grid-slot ' + (name ? 'filled ' : 'empty ') + (winner ? 'td-grid-winner ' : '') + extra + '">' +
       (name ? esc(name) + (winner ? ' ✓' : '') : '&nbsp;') + '</div>';
