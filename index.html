@@ -423,6 +423,33 @@ body.view-subpage{overflow:auto!important}
   padding-left:24px!important;
   padding-right:24px!important;
 }
+
+/* Márgenes simétricos en los extremos de la tabla: ID a la izquierda y acciones a la derecha */
+#managementViews #participantsView .mgmt-table th:first-child,
+#managementViews #participantsView .mgmt-table td:first-child{
+  width:58px!important;min-width:58px!important;max-width:58px!important;
+  padding-left:18px!important;padding-right:8px!important;
+  box-sizing:border-box!important;
+}
+#managementViews #participantsView .mgmt-table th:last-child,
+#managementViews #participantsView .mgmt-table td:last-child{
+  padding-left:8px!important;padding-right:18px!important;
+  box-sizing:border-box!important;
+}
+#managementViews #participantsView .mgmt-table td:last-child .mgmt-row-actions{
+  justify-content:center!important;
+}
+@media(max-width:650px){
+  #managementViews #participantsView .mgmt-table th:first-child,
+  #managementViews #participantsView .mgmt-table td:first-child{
+    width:58px!important;min-width:58px!important;max-width:58px!important;
+    padding-left:18px!important;padding-right:8px!important;
+  }
+  #managementViews #participantsView .mgmt-table th:last-child,
+  #managementViews #participantsView .mgmt-table td:last-child{
+    padding-left:8px!important;padding-right:18px!important;
+  }
+}
 </style>
 </head>
 <body>
