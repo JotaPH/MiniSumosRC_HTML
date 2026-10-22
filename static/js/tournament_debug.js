@@ -189,7 +189,6 @@
       const liveRound = (title, matches) => '<div class="td-bracket-round"><div class="td-bracket-round-title">' + title + '</div>' +
         (matches.length ? matches.map(matchCard).join('') : '<div class="td-empty">Por jugar</div>') + '</div>';
       const firstPairs = extremePairs(n, firstWCount);
-      const firstResults = stageMatches('initialW1');
       const first = firstPairs.map((p,i) => {
         const h = winnerByMatch('initialW1', i);
         return {a:players[p[0]].robot,b:players[p[1]].robot,winner:h ? h.winner : ''};
@@ -205,16 +204,16 @@
         advancing = secondCount + (advancing % 2);
         roundNo = 3;
       }
-      let mainRound = 0;
+      let mainOffset = 0;
       while (advancing > 1) {
         const matches = Math.floor(advancing / 2);
         const stageRows = stageMatches('mainW');
-        const rows = stageRows.slice(mainRound * matches, (mainRound + 1) * matches);
+        const rows = stageRows.slice(mainOffset, mainOffset + matches);
         while (rows.length < matches) rows.push({a:'',b:'',winner:''});
         rounds.push(liveRound('RONDA ' + roundNo, rows));
         advancing = matches + (advancing % 2);
         roundNo++;
-        mainRound++;
+        mainOffset += matches;
       }
     } else {
       // Predict the number/order of initial losses using the same insertion rule as combates.py.
