@@ -188,66 +188,67 @@
       '<div class="td-grid-slot ' + (name ? 'filled ' : 'empty ') + (winner ? 'td-grid-winner ' : '') + extra + '">' +
       (name ? esc(name) + (winner ? ' ✓' : '') : '&nbsp;') + '</div>';
     const getName = id => {
-      const s = slot(id);
-      const p = s && player(s.robot_id);
+      const sl = slot(id);
+      const p = sl && player(sl.robot_id);
       return p ? p.robot : '';
     };
     const historyFor = stage => (tournament.history || []).filter(h => h.round === stage);
-    const matchesFor = stage => {
-      const done = historyFor(stage).map(h => ({a:h.a || '', b:h.b || '', winner:h.winner || ''}));
-      const queued = [];
-      if (tournament.current && tournament.current.stage === stage) queued.push(tournament.current);
-      (tournament.queue || []).forEach(m => {
-        if (m.stage === stage && !queued.some(q => q.a === m.a && q.b === m.b)) queued.push(m);
-      });
-      return done.concat(queued.map(m => ({a:getName(m.a), b:getName(m.b), winner:''})));
+    const matchFor = (aId, bId, history, used) => {
+      const a = getName(aId), b = getName(bId);
+      const idx = history.findIndex((h, i) => !used.has(i) &&
+        ((h.a === a && h.b === b) || (h.a === b && h.b === a)));
+      if (idx >= 0) used.add(idx);
+      const hit = idx >= 0 ? history[idx] : null;
+      return {a, b, winner:hit ? hit.winner : ''};
     };
-    const firstWCount = (n - (capacity - n)) / 2;
-    const extremePairs = (count, amount) => {
-      const out = [];
-      let left = 0, right = count - 1;
-      while (out.length < amount && left < right) {
-        out.push([left, left + 1]);
-        left += 2;
-        if (out.length >= amount || left >= right) break;
-        out.push([right - 1, right]);
-        right -= 2;
+    const extremePairsForPreview = (count, amount) => {
+      const out=[]; let left=0,right=count-1;
+      while(out.length<amount && left<right) {
+        out.push([left,left+1,'izquierda']); left+=2;
+        if(out.length>=amount || left>=right) break;
+        out.push([right-1,right,'derecha']); right-=2;
       }
       return out;
     };
-    const stages = [];
-    const firstPairs = extremePairs(n, firstWCount);
-    const r1Played = historyFor('initialW1');
+    const firstPairs = extremePairsForPreview(n, firstWCount);
+    const initialW1History = historyFor('initialW1');
     const r1 = Array.from({length:capacity/2},()=>({a:'',b:'',winner:''}));
+    const usedR1 = new Set();
     firstPairs.forEach((pair,i) => {
-      // El motor programa cruces extremos: primero los de la izquierda y luego los de la derecha.
-      const target = pair[0] < n / 2 ? Math.floor(pair[0] / 2) : Math.floor((capacity - (n - pair[0])) / 2);
-      const matchIndex = Math.max(0, Math.min(r1.length - 1, target));
-      const h = r1Played[i];
-      r1[matchIndex] = {a:players[pair[0]].robot,b:players[pair[1]].robot,winner:h ? h.winner : ''};
+      const a = players[pair[0]].robot, b = players[pair[1]].robot;
+      const idx = initialW1History.findIndex((h,j) => !usedR1.has(j) &&
+        ((h.a === a && h.b === b) || (h.a === b && h.b === a)));
+      if(idx>=0) usedR1.add(idx);
+      const hit = idx>=0 ? initialW1History[idx] : null;
+      const target = pair[2] === 'derecha' ? capacity/2 - 1 - Math.floor(i/2) : Math.floor(i/2);
+      r1[Math.max(0,Math.min(r1.length-1,target))] = {a,b,winner:hit ? hit.winner : ''};
     });
-    stages.push({title:'R1', matches:r1});
+    stages.push({title:'R1',matches:r1});
 
-    const advancingAfterR1 = n - firstWCount;
+    // El motor mantiene el orden de los slots en winners y reemplaza la pareja por el ganador.
+    const winnersIds = (tournament.winners || []).slice();
     const hasByes = capacity - n > 0;
-    let expectedR2 = hasByes ? Math.floor(advancingAfterR1 / 2) : Math.floor(n / 2);
-    let stage2 = matchesFor(hasByes ? 'initialW2' : 'mainW');
     const r2 = Array.from({length:capacity/4},()=>({a:'',b:'',winner:''}));
-    stage2.slice(0,expectedR2).forEach((m,i)=>{ r2[i] = m; });
+    const r2History = historyFor(hasByes ? 'initialW2' : 'mainW');
+    const usedR2 = new Set();
+    for(let i=0;i<r2.length;i++) {
+      const aId=winnersIds[2*i], bId=winnersIds[2*i+1];
+      if(aId && bId) r2[i]=matchFor(aId,bId,r2History,usedR2);
+    }
     stages.push({title:'R2',matches:r2});
 
-    let previousCount = capacity / 4;
-    let stageNo = 3;
-    let mainOffset = 0;
-    while (previousCount > 1 && stageNo <= roundCount) {
-      const count = previousCount / 2;
-      const allMain = matchesFor('mainW');
-      const offset = hasByes ? Math.max(0, expectedR2) + mainOffset : mainOffset;
-      const current = allMain.slice(offset, offset + count);
-      const padded = Array.from({length:count},(_,i)=>current[i] || {a:'',b:'',winner:''});
-      stages.push({title:'R' + stageNo,matches:padded});
-      mainOffset += count;
-      previousCount = count;
+    let stageNo=3;
+    let matchesInRound=capacity/8;
+    let mainOffset=0;
+    while(matchesInRound>=1 && stageNo<=roundCount) {
+      const allMain=historyFor('mainW');
+      const rows=Array.from({length:matchesInRound},(_,i)=>{
+        const h=allMain[mainOffset+i];
+        return h ? {a:h.a||'',b:h.b||'',winner:h.winner||''} : {a:'',b:'',winner:''};
+      });
+      stages.push({title:'R'+stageNo,matches:rows});
+      mainOffset+=matchesInRound;
+      matchesInRound=Math.floor(matchesInRound/2);
       stageNo++;
     }
 
