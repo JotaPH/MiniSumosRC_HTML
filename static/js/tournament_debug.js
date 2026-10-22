@@ -215,6 +215,22 @@
     finally { busy = false; render(); }
   }
 
+  window.refreshTournamentAfterParticipantChange = async function () {
+    try {
+      const response = await fetch("/api/tournament/debug-state", {
+        method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({reset:true})
+      });
+      if (!response.ok) throw new Error("No se pudo reiniciar el estado de las tablas del torneo.");
+      await refreshParticipants();
+      tournament = freshState();
+      tournament.logs = [{message:"Tablas reiniciadas automáticamente por un cambio en participantes.",kind:"system"}];
+      syncManagementState();
+      render();
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
   async function resetTournament() {
     if (busy) return;
     if (tournament && tournament.started && !confirm("¿Reiniciar la prueba? Se borrarán los resultados y se desactivará la bandera de torneo iniciado.")) return;
