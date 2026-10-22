@@ -241,7 +241,8 @@ def create_participant():
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """, (data[0], data[1], data[2], *data[3]))
             row = connection.execute("SELECT last_insert_rowid() AS id").fetchone()
-        return jsonify({"id": row["id"], "message": "Participante guardado en SQLite."}), 201
+            connection.execute("UPDATE torneo_debug SET iniciado=0, estado_json='' WHERE id=1")
+        return jsonify({"id": row["id"], "message": "Participante guardado en SQLite.", "competitionReset": True}), 201
     except (OSError, sqlite3.Error) as error:
         return jsonify({"error": f"No se pudo guardar el participante: {error}"}), 503
 
@@ -271,7 +272,8 @@ def update_participant(participant_id):
             """, (data[0], data[1], data[2], *data[3], participant_id))
             if cursor.rowcount == 0:
                 return jsonify({"error": "El participante ya no existe."}), 404
-        return jsonify({"message": "Participante actualizado en SQLite."})
+            connection.execute("UPDATE torneo_debug SET iniciado=0, estado_json='' WHERE id=1")
+        return jsonify({"message": "Participante actualizado en SQLite.", "competitionReset": True})
     except (OSError, sqlite3.Error) as error:
         return jsonify({"error": f"No se pudo actualizar el participante: {error}"}), 503
 
@@ -288,7 +290,8 @@ def delete_participant(participant_id):
             cursor = connection.execute("DELETE FROM participantes WHERE id=?", (participant_id,))
             if cursor.rowcount == 0:
                 return jsonify({"error": "El participante ya no existe."}), 404
-        return jsonify({"message": "Participante eliminado de SQLite."})
+            connection.execute("UPDATE torneo_debug SET iniciado=0, estado_json='' WHERE id=1")
+        return jsonify({"message": "Participante eliminado de SQLite.", "competitionReset": True})
     except (OSError, sqlite3.Error) as error:
         return jsonify({"error": f"No se pudo eliminar el participante: {error}"}), 503
 
