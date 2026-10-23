@@ -506,7 +506,7 @@ def tournament_close_match(data, match, winner, loser):
 def get_current_tournament_match():
     try:
         started, data = load_tournament_state()
-        if not started or not data:
+        if not data:
             return jsonify({"started": False, "match": None, "error": "Todavía no hay una llave generada."})
         match = tournament_next_match(data)
         players = {str(p["id"]): p for p in data.get("players", [])}
