@@ -40,96 +40,111 @@ function draw(rounds,title){
  rounds.forEach(rr=>rr.forEach(id=>{const m=tournament.matches[id],p=pos[id],active=next()===m,fill=active?"#4a2c0a":m.done?"#123b2b":"#132438",stroke=active?"#f59e0b":m.done?"#22c55e":"#3b536b";s+='<g><rect x="'+p.x+'" y="'+p.y+'" width="164" height="52" rx="8" fill="'+fill+'" stroke="'+stroke+'" stroke-width="'+(active?2.5:1)+'"/><text x="'+(p.x+8)+'" y="'+(p.y+12)+'" font-size="9" fill="#8faac0">'+esc(id)+'</text>';for(let j=0;j<2;j++){const idp=m.slots[j],win=m.done&&String(m.winner)===String(idp)&&idp!==0,txt=name(idp);s+='<text x="'+(p.x+8)+'" y="'+(p.y+29+j*16)+'" font-size="11" font-weight="'+(win?800:500)+'" fill="'+(win?"#86efac":idp==null?"#6c8297":"#f1f5f9")+'">'+esc(txt.length>22?txt.slice(0,21)+"…":txt)+'</text>';}s+='</g>';}));return s+'</svg></div>';
 }
 function drawWholeBracket(){
- // Render visual adaptado de Llaves/doble_eliminacion_gui.py.
- // No modifica la estructura ni la lógica del torneo.
- const BW=164,BH=52,VG=18,COLW=194,MX=28,MY=68,STEP=BH+VG;
- const G=tournament.G,P=tournament.P,matches=tournament.matches;
- const pos={};
- const center=(id)=>pos[id].y+BH/2;
- const place=(id,x,cy)=>{pos[id]={x,y:cy-BH/2};};
+ // Traslado fiel del algoritmo de posiciones y dibujo de doble_eliminacion_gui.py.
+ // Solo se adaptan los nombres de datos y el lienzo Tkinter a SVG/HTML.
+ const BW=124,BH=40,VG=16,COLW=176,MX=64,MY=70;
+ const G=tournament.G,P=tournament.P,matches=tournament.matches,pos={};
+ const center=id=>pos[id]?.y;
+ const place=(id,x,y)=>{pos[id]={x,y};};
 
- // Ganadores: cada partido se centra entre sus dos partidos alimentadores.
+ // Misma distribución vertical de ganadores: cada ronda se centra
+ // entre los dos partidos de la ronda anterior.
  G.forEach((round,r)=>round.forEach((id,i)=>{
-   let cy;
-   if(r===0)cy=MY+i*STEP+BH/2;
-   else cy=(center(G[r-1][2*i])+center(G[r-1][2*i+1]))/2;
-   place(id,MX+r*COLW,cy);
+   const y=r===0
+     ? MY+i*(BH+VG)+BH/2
+     : (center(G[r-1][2*i])+center(G[r-1][2*i+1]))/2;
+   place(id,MX+r*COLW,y);
  }));
 
- // Perdedores: rondas alternas conservan altura o fusionan dos partidos.
- const lbTop=MY+(G[0]?.length||1)*STEP+72;
+ // Misma distribución de perdedores: una ronda conserva la altura;
+ // la siguiente agrupa de dos en dos.
+ const lbTop=MY+G[0].length*(BH+VG)+60;
  P.forEach((round,r)=>round.forEach((id,i)=>{
-   let cy;
-   if(r===0)cy=lbTop+i*STEP+BH/2;
-   else if(r%2===1)cy=center(P[r-1][i]);
+   let y;
+   if(r===0)y=lbTop+i*(BH+VG)+BH/2;
+   else if(r%2===1)y=center(P[r-1][i]);
    else{
-     const prev=P[r-1];
-     const a=prev[2*i],b=prev[2*i+1];
-     cy=a&&b?(center(a)+center(b))/2:a?center(a):b?center(b):lbTop+i*STEP+BH/2;
+     const a=P[r-1][2*i],b=P[r-1][2*i+1];
+     y=(center(a)+center(b))/2;
    }
-   place(id,MX+r*COLW,cy);
+   place(id,MX+r*COLW,y);
  }));
 
- // Gran final y posible reinicio.
- const lastG=G[G.length-1]?.[0],lastP=P[P.length-1]?.[0];
- const finalCol=Math.max(G.length,P.length);
- const finalCenter=lastG?(lastP?(center(lastG)+center(lastP))/2:center(lastG)):MY;
- place("FINAL",MX+finalCol*COLW,finalCenter);
- place("RESET",MX+finalCol*COLW,finalCenter+BH+60);
+ const k=Math.log2(tournament.size);
+ const finalCol=Math.max(k,P.length);
+ const yg=center(G[G.length-1][0]);
+ const yf=P.length?(yg+center(P[P.length-1][0]))/2:yg;
+ place("FINAL",MX+finalCol*COLW,yf);
+ place("RESET",MX+finalCol*COLW,yf+BH+60);
 
- const all=[...G.flat(),...P.flat(),"FINAL","RESET"].filter(id=>matches[id]&&!matches[id].omit);
- const maxX=Math.max(...all.map(id=>pos[id].x+BW),MX+BW);
- const maxY=Math.max(...all.map(id=>pos[id].y+BH),MY+BH)+74;
- const width=maxX+MX,height=maxY;
- let svg='<div class="tl-scroll"><svg width="'+width+'" height="'+height+'" viewBox="0 0 '+width+' '+height+'" role="img" aria-label="Llaves de doble eliminación">';
- svg+='<text x="'+MX+'" y="19" fill="#e2e8f0" font-size="14" font-weight="900">LLAVE DE GANADORES</text>';
+ const all=[...G.flat(),...P.flat()];
+ const W=MX*2+(finalCol+1)*COLW;
+ const H=Math.max(...Object.values(pos).map(p=>p.y))+BH/2+80;
+ const nextMatch=next();
+ let svg='<div class="tl-scroll"><svg width="'+W+'" height="'+H+'" viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Llaves de doble eliminación">';
+ const text=(x,y,txt,color,size=9,weight=500)=>'<text x="'+x+'" y="'+y+'" fill="'+color+'" font-size="'+size+'" font-weight="'+weight+'">'+esc(txt)+'</text>';
+
+ // Títulos y nombres de rondas como en la GUI original.
+ svg+=text(MX,14,"LLAVE DE GANADORES","#e2e8f0",12,700);
  G.forEach((round,r)=>{
    const label=round.length===1?"Final":round.length===2?"Semifinal":round.length===4?"Cuartos":"Ronda "+(r+1);
-   svg+='<text x="'+(MX+r*COLW)+'" y="'+(MY-22)+'" fill="#64748b" font-size="10">G-R'+(r+1)+' · '+label+'</text>';
+   svg+=text(MX+r*COLW,MY-24,"G-R"+(r+1)+" · "+label,"#64748b");
  });
  if(P.length){
-   svg+='<text x="'+MX+'" y="'+(lbTop-43)+'" fill="#e2e8f0" font-size="14" font-weight="900">LLAVE DE PERDEDORES</text>';
-   P.forEach((round,r)=>{
-     svg+='<text x="'+(MX+r*COLW)+'" y="'+(lbTop-22)+'" fill="#64748b" font-size="10">P-R'+(r+1)+' · '+round.length+' partido(s)</text>';
+   svg+=text(MX,lbTop-52,"LLAVE DE PERDEDORES","#e2e8f0",12,700);
+   P.forEach((round,r)=>svg+=text(MX+r*COLW,lbTop-24,"P-R"+(r+1)+" · "+round.length+" partido(s)","#64748b"));
+ }
+ svg+=text(pos.FINAL.x,pos.FINAL.y-BH/2-26,"GRAN FINAL","#e2e8f0",12,700);
+
+ // Igual que la referencia: las conexiones principales solo siguen el avance
+ // de ganadores; se dibujan antes que las cajas para que no las atraviesen.
+ const connector=(id,dest)=>{
+   if(!dest||!pos[dest.match])return;
+   const a=pos[id],b=pos[dest.match];
+   const x1=a.x+BW,y1=a.y,x2=b.x;
+   const y2=b.y+(dest.slot===0?-BH/4:BH/4),xm=(x1+x2)/2;
+   const m=matches[id],used=m.done&&m.winner!=null&&m.winner!==0;
+   svg+='<path d="M '+x1+' '+y1+' H '+xm+' V '+y2+' H '+x2+'" fill="none" stroke="'+(used?"#22c55e":"#475569")+'" stroke-width="'+(used?2:1)+'" stroke-linejoin="round"/>';
+ };
+ all.forEach(id=>connector(id,matches[id].winDest));
+ if(k===1)connector(G[0][0],matches[G[0][0]].loseDest);
+
+ // En la GUI original, la caída desde ganadores se identifica con etiquetas
+ // rojas en la ronda de perdedores en vez de dibujar líneas que crucen cajas.
+ if(k>=2){
+   G.flat().forEach(id=>{
+     const dest=matches[id].loseDest;
+     if(!dest||!pos[dest.match])return;
+     const p=pos[dest.match],y=p.y+(dest.slot===0?-BH/4:BH/4);
+     svg+=text(p.x-5,y,"↓"+id,"#f87171",7);
    });
  }
- svg+='<text x="'+pos.FINAL.x+'" y="'+(pos.FINAL.y-13)+'" fill="#f59e0b" font-size="12" font-weight="900">GRAN FINAL</text>';
 
- // Conectores detrás de los cuadros: verde para avance y rojo para caída.
- all.forEach(id=>{
-   const m=matches[id],a=pos[id];
-   for(const key of ["winDest","loseDest"]){
-     const d=m[key];
-     if(!d||!pos[d.match]||matches[d.match]?.omit)continue;
-     const b=pos[d.match],x1=a.x+BW,y1=a.y+BH/2,x2=b.x;
-     const y2=b.y+BH/2+(d.slot===0?-BH/4:BH/4),mid=(x1+x2)/2;
-     const color=key==="loseDest"?(m.done?"#fb7185":"#75404c"):(m.done?"#22c55e":"#475569");
-     svg+='<path d="M '+x1+' '+y1+' H '+mid+' V '+y2+' H '+x2+'" fill="none" stroke="'+color+'" stroke-width="'+(m.done?2:1.4)+'" stroke-linejoin="round"/>';
+ // Cajas divididas en dos mitades, con el siguiente combate resaltado.
+ const drawMatch=id=>{
+   const m=matches[id],p=pos[id];
+   if(!p||m?.omit)return;
+   const active=m===nextMatch;
+   svg+=text(p.x,p.y-BH/2-3,id,active?"#f59e0b":"#64748b",7);
+   for(let s=0;s<2;s++){
+     const v=m.slots[s],yy=p.y-BH/2+s*BH/2;
+     let fill="#1e293b",color="#e2e8f0",label=name(v);
+     if(v==null){fill="#1e293b";color="#64748b";label="—";}
+     else if(v===0){fill="#111827";color="#374151";label="BYE";}
+     else if(m.done&&String(v)===String(m.winner)){fill="#166534";}
+     else if(m.done&&String(v)===String(m.loser)){fill="#3f1d1d";color="#9ca3af";}
+     svg+='<rect x="'+p.x+'" y="'+yy+'" width="'+BW+'" height="'+(BH/2)+'" fill="'+fill+'" stroke="#475569" stroke-width="1"/>';
+     svg+=text(p.x+8,yy+BH/4+4,label,color,9,700);
    }
- });
-
- // Cuadros divididos en dos espacios, como en la interfaz de referencia.
- all.forEach(id=>{
-   const m=matches[id],p=pos[id],active=next()===m;
-   const fill=active?"#4a2c0a":m.done?"#123b2b":"#1e293b";
-   const stroke=active?"#f59e0b":m.done?"#22c55e":"#475569";
-   svg+='<g><text x="'+p.x+'" y="'+(p.y-4)+'" fill="'+(active?"#f59e0b":"#64748b")+'" font-size="9">'+esc(id)+'</text>';
-   for(let j=0;j<2;j++){
-     const v=m.slots[j],winner=m.done&&String(m.winner)===String(v)&&v!==0;
-     const loser=m.done&&String(m.loser)===String(v)&&v!==0;
-     const yy=p.y+j*BH/2,slotFill=winner?"#166534":loser?"#3f1d1d":v===0?"#111827":fill;
-     const color=winner?"#dcfce7":loser?"#9ca3af":v===0?"#64748b":v==null?"#64748b":"#e2e8f0";
-     let txt=name(v);if(txt.length>21)txt=txt.slice(0,20)+"…";
-     svg+='<rect x="'+p.x+'" y="'+yy+'" width="'+BW+'" height="'+(BH/2)+'" fill="'+slotFill+'" stroke="#475569" stroke-width="1"/>';
-     svg+='<text x="'+(p.x+8)+'" y="'+(yy+BH/4+4)+'" fill="'+color+'" font-size="11" font-weight="'+(winner?800:600)+'">'+esc(txt)+'</text>';
-   }
-   svg+='<rect x="'+p.x+'" y="'+p.y+'" width="'+BW+'" height="'+BH+'" rx="3" fill="none" stroke="'+stroke+'" stroke-width="'+(active?2.5:1)+'"/></g>';
- });
+   svg+='<rect x="'+p.x+'" y="'+(p.y-BH/2)+'" width="'+BW+'" height="'+BH+'" fill="none" stroke="'+(active?"#f59e0b":"#475569")+'" stroke-width="'+(active?3:1)+'"/>';
+ };
+ all.forEach(drawMatch);
+ drawMatch("FINAL");drawMatch("RESET");
  if(tournament.champion!=null){
    const p=pos.RESET;
-   svg+='<text x="'+p.x+'" y="'+(p.y+BH+22)+'" fill="#f59e0b" font-size="14" font-weight="900">🏆 Campeón: '+esc(name(tournament.champion))+'</text>';
+   svg+=text(p.x,p.y+BH/2+30,"🏆 Campeón: "+name(tournament.champion),"#f59e0b",14,700);
  }
- svg+='</svg></div><div class="tl-muted" style="margin-top:8px">Línea verde: avance del ganador · línea roja: caída a perdedores · cuadro amarillo: siguiente enfrentamiento.</div>';
+ svg+='</svg></div><div class="tl-muted" style="margin-top:8px">Línea verde: avance resuelto · etiquetas rojas: caída a perdedores · borde amarillo: siguiente enfrentamiento.</div>';
  return svg;
 }
 function render(){
