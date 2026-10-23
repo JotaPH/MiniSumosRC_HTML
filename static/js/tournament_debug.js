@@ -40,18 +40,97 @@ function draw(rounds,title){
  rounds.forEach(rr=>rr.forEach(id=>{const m=tournament.matches[id],p=pos[id],active=next()===m,fill=active?"#4a2c0a":m.done?"#123b2b":"#132438",stroke=active?"#f59e0b":m.done?"#22c55e":"#3b536b";s+='<g><rect x="'+p.x+'" y="'+p.y+'" width="164" height="52" rx="8" fill="'+fill+'" stroke="'+stroke+'" stroke-width="'+(active?2.5:1)+'"/><text x="'+(p.x+8)+'" y="'+(p.y+12)+'" font-size="9" fill="#8faac0">'+esc(id)+'</text>';for(let j=0;j<2;j++){const idp=m.slots[j],win=m.done&&String(m.winner)===String(idp)&&idp!==0,txt=name(idp);s+='<text x="'+(p.x+8)+'" y="'+(p.y+29+j*16)+'" font-size="11" font-weight="'+(win?800:500)+'" fill="'+(win?"#86efac":idp==null?"#6c8297":"#f1f5f9")+'">'+esc(txt.length>22?txt.slice(0,21)+"…":txt)+'</text>';}s+='</g>';}));return s+'</svg></div>';
 }
 function drawWholeBracket(){
- const left=22,cw=194,bw=164,bh=52,step=68,top=48;
- const gMax=Math.max(1,tournament.G[0]?.length||1),pMax=Math.max(1,tournament.P[0]?.length||1);
- const gSpace=gMax*step,pTop=top+gSpace+72,pSpace=pMax*step,maxRounds=Math.max(tournament.G.length,tournament.P.length);
- const finalX=left+maxRounds*cw,width=finalX+bw+left,height=pTop+pSpace+65,coords={};
- tournament.G.forEach((rr,r)=>rr.forEach((id,i)=>{coords[id]={x:left+r*cw,y:top+(i+.5)*gSpace/rr.length-bh/2};}));
- tournament.P.forEach((rr,r)=>rr.forEach((id,i)=>{coords[id]={x:left+r*cw,y:pTop+(i+.5)*pSpace/rr.length-bh/2};}));
- coords.FINAL={x:finalX,y:top+gSpace/2-bh/2};coords.RESET={x:finalX,y:pTop+pSpace/2+bh/2};
- let svg='<div class="tl-scroll"><svg width="'+width+'" height="'+height+'" viewBox="0 0 '+width+' '+height+'" role="img" aria-label="Llaves conectadas de doble eliminación"><text x="18" y="22" fill="#7deaff" font-size="14" font-weight="900">GANADORES</text><text x="18" y="'+(pTop-22)+'" fill="#7deaff" font-size="14" font-weight="900">PERDEDORES</text><text x="'+finalX+'" y="22" fill="#fcd34d" font-size="13" font-weight="900">GRAN FINAL</text>';
- const all=[...tournament.G.flat(),...tournament.P.flat(),"FINAL","RESET"].filter(id=>!tournament.matches[id].omit);
- all.forEach(id=>{const m=tournament.matches[id],a=coords[id];for(const key of ["winDest","loseDest"]){const d=m[key];if(!d||!coords[d.match])continue;const b=coords[d.match],x1=a.x+bw,y1=a.y+bh/2,x2=b.x,y2=b.y+bh/2+(d.slot===0?-11:11),mid=x1+(x2-x1)/2,color=key==="loseDest"?(m.done?"#fb7185":"#75404c"):(m.done?"#22c55e":"#344b62");svg+='<path d="M '+x1+' '+y1+' H '+mid+' V '+y2+' H '+x2+'" fill="none" stroke="'+color+'" stroke-width="'+(m.done?2:1.4)+'" stroke-linejoin="round"/>'; }});
- all.forEach(id=>{const m=tournament.matches[id],p=coords[id],active=next()===m,fill=active?"#4a2c0a":m.done?"#123b2b":"#132438",stroke=active?"#f59e0b":m.done?"#22c55e":"#3b536b";svg+='<g><rect x="'+p.x+'" y="'+p.y+'" width="'+bw+'" height="'+bh+'" rx="8" fill="'+fill+'" stroke="'+stroke+'" stroke-width="'+(active?2.5:1)+'"/><text x="'+(p.x+8)+'" y="'+(p.y+12)+'" font-size="9" fill="#8faac0">'+esc(id)+'</text>';for(let j=0;j<2;j++){const v=m.slots[j],win=m.done&&String(m.winner)===String(v)&&v!==0,txt=name(v);svg+='<text x="'+(p.x+8)+'" y="'+(p.y+29+j*16)+'" font-size="11" font-weight="'+(win?800:500)+'" fill="'+(win?"#86efac":v==null?"#6c8297":"#f1f5f9")+'">'+esc(txt.length>21?txt.slice(0,20)+"…":txt)+'</text>';}svg+='</g>';});
- svg+='</svg></div><div class="tl-muted" style="margin-top:8px">Línea verde: avance del ganador · línea roja: caída a perdedores · el cuadro amarillo indica el siguiente enfrentamiento.</div>';return svg;
+ // Render visual adaptado de Llaves/doble_eliminacion_gui.py.
+ // No modifica la estructura ni la lógica del torneo.
+ const BW=164,BH=52,VG=18,COLW=194,MX=28,MY=68,STEP=BH+VG;
+ const G=tournament.G,P=tournament.P,matches=tournament.matches;
+ const pos={};
+ const center=(id)=>pos[id].y+BH/2;
+ const place=(id,x,cy)=>{pos[id]={x,y:cy-BH/2};};
+
+ // Ganadores: cada partido se centra entre sus dos partidos alimentadores.
+ G.forEach((round,r)=>round.forEach((id,i)=>{
+   let cy;
+   if(r===0)cy=MY+i*STEP+BH/2;
+   else cy=(center(G[r-1][2*i])+center(G[r-1][2*i+1]))/2;
+   place(id,MX+r*COLW,cy);
+ }));
+
+ // Perdedores: rondas alternas conservan altura o fusionan dos partidos.
+ const lbTop=MY+(G[0]?.length||1)*STEP+72;
+ P.forEach((round,r)=>round.forEach((id,i)=>{
+   let cy;
+   if(r===0)cy=lbTop+i*STEP+BH/2;
+   else if(r%2===1)cy=center(P[r-1][i]);
+   else{
+     const prev=P[r-1];
+     const a=prev[2*i],b=prev[2*i+1];
+     cy=a&&b?(center(a)+center(b))/2:a?center(a):b?center(b):lbTop+i*STEP+BH/2;
+   }
+   place(id,MX+r*COLW,cy);
+ }));
+
+ // Gran final y posible reinicio.
+ const lastG=G[G.length-1]?.[0],lastP=P[P.length-1]?.[0];
+ const finalCol=Math.max(G.length,P.length);
+ const finalCenter=lastG?(lastP?(center(lastG)+center(lastP))/2:center(lastG)):MY;
+ place("FINAL",MX+finalCol*COLW,finalCenter);
+ place("RESET",MX+finalCol*COLW,finalCenter+BH+60);
+
+ const all=[...G.flat(),...P.flat(),"FINAL","RESET"].filter(id=>matches[id]&&!matches[id].omit);
+ const maxX=Math.max(...all.map(id=>pos[id].x+BW),MX+BW);
+ const maxY=Math.max(...all.map(id=>pos[id].y+BH),MY+BH)+74;
+ const width=maxX+MX,height=maxY;
+ let svg='<div class="tl-scroll"><svg width="'+width+'" height="'+height+'" viewBox="0 0 '+width+' '+height+'" role="img" aria-label="Llaves de doble eliminación">';
+ svg+='<text x="'+MX+'" y="19" fill="#e2e8f0" font-size="14" font-weight="900">LLAVE DE GANADORES</text>';
+ G.forEach((round,r)=>{
+   const label=round.length===1?"Final":round.length===2?"Semifinal":round.length===4?"Cuartos":"Ronda "+(r+1);
+   svg+='<text x="'+(MX+r*COLW)+'" y="'+(MY-22)+'" fill="#64748b" font-size="10">G-R'+(r+1)+' · '+label+'</text>';
+ });
+ if(P.length){
+   svg+='<text x="'+MX+'" y="'+(lbTop-43)+'" fill="#e2e8f0" font-size="14" font-weight="900">LLAVE DE PERDEDORES</text>';
+   P.forEach((round,r)=>{
+     svg+='<text x="'+(MX+r*COLW)+'" y="'+(lbTop-22)+'" fill="#64748b" font-size="10">P-R'+(r+1)+' · '+round.length+' partido(s)</text>';
+   });
+ }
+ svg+='<text x="'+pos.FINAL.x+'" y="'+(pos.FINAL.y-13)+'" fill="#f59e0b" font-size="12" font-weight="900">GRAN FINAL</text>';
+
+ // Conectores detrás de los cuadros: verde para avance y rojo para caída.
+ all.forEach(id=>{
+   const m=matches[id],a=pos[id];
+   for(const key of ["winDest","loseDest"]){
+     const d=m[key];
+     if(!d||!pos[d.match]||matches[d.match]?.omit)continue;
+     const b=pos[d.match],x1=a.x+BW,y1=a.y+BH/2,x2=b.x;
+     const y2=b.y+BH/2+(d.slot===0?-BH/4:BH/4),mid=(x1+x2)/2;
+     const color=key==="loseDest"?(m.done?"#fb7185":"#75404c"):(m.done?"#22c55e":"#475569");
+     svg+='<path d="M '+x1+' '+y1+' H '+mid+' V '+y2+' H '+x2+'" fill="none" stroke="'+color+'" stroke-width="'+(m.done?2:1.4)+'" stroke-linejoin="round"/>';
+   }
+ });
+
+ // Cuadros divididos en dos espacios, como en la interfaz de referencia.
+ all.forEach(id=>{
+   const m=matches[id],p=pos[id],active=next()===m;
+   const fill=active?"#4a2c0a":m.done?"#123b2b":"#1e293b";
+   const stroke=active?"#f59e0b":m.done?"#22c55e":"#475569";
+   svg+='<g><text x="'+p.x+'" y="'+(p.y-4)+'" fill="'+(active?"#f59e0b":"#64748b")+'" font-size="9">'+esc(id)+'</text>';
+   for(let j=0;j<2;j++){
+     const v=m.slots[j],winner=m.done&&String(m.winner)===String(v)&&v!==0;
+     const loser=m.done&&String(m.loser)===String(v)&&v!==0;
+     const yy=p.y+j*BH/2,slotFill=winner?"#166534":loser?"#3f1d1d":v===0?"#111827":fill;
+     const color=winner?"#dcfce7":loser?"#9ca3af":v===0?"#64748b":v==null?"#64748b":"#e2e8f0";
+     let txt=name(v);if(txt.length>21)txt=txt.slice(0,20)+"…";
+     svg+='<rect x="'+p.x+'" y="'+yy+'" width="'+BW+'" height="'+(BH/2)+'" fill="'+slotFill+'" stroke="#475569" stroke-width="1"/>';
+     svg+='<text x="'+(p.x+8)+'" y="'+(yy+BH/4+4)+'" fill="'+color+'" font-size="11" font-weight="'+(winner?800:600)+'">'+esc(txt)+'</text>';
+   }
+   svg+='<rect x="'+p.x+'" y="'+p.y+'" width="'+BW+'" height="'+BH+'" rx="3" fill="none" stroke="'+stroke+'" stroke-width="'+(active?2.5:1)+'"/></g>';
+ });
+ if(tournament.champion!=null){
+   const p=pos.RESET;
+   svg+='<text x="'+p.x+'" y="'+(p.y+BH+22)+'" fill="#f59e0b" font-size="14" font-weight="900">🏆 Campeón: '+esc(name(tournament.champion))+'</text>';
+ }
+ svg+='</svg></div><div class="tl-muted" style="margin-top:8px">Línea verde: avance del ganador · línea roja: caída a perdedores · cuadro amarillo: siguiente enfrentamiento.</div>';
+ return svg;
 }
 function render(){
  const root=$("tournamentLive");if(!root)return;if(!tournament){renderEmpty("Generando la llave…");return;}const cur=next(),resolved=Object.values(tournament.matches).filter(m=>m.done&&!m.omit&&m.bracket!=="F").length;
