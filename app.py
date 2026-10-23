@@ -410,6 +410,138 @@ def list_matches():
     except (OSError, sqlite3.Error) as error:
         return jsonify({"error": f"No se pudieron consultar las batallas: {error}"}), 503
 
+
+def load_tournament_state():
+    with closing(db_connect()) as connection:
+        row = connection.execute(
+            "SELECT iniciado, estado_json FROM torneo_debug WHERE id=1"
+        ).fetchone()
+    data = json.loads(row["estado_json"]) if row and row["estado_json"] else None
+    return bool(row and row["iniciado"]), data
+
+def save_tournament_state(data, started=True):
+    encoded = json.dumps(data, ensure_ascii=False, separators=(",", ":"))
+    with closing(db_connect()) as connection, connection:
+        connection.execute(
+            "UPDATE torneo_debug SET iniciado=?, estado_json=? WHERE id=1",
+            (1 if started else 0, encoded)
+        )
+
+def tournament_next_match(data):
+    if not isinstance(data, dict):
+        return None
+    matches = data.get("matches", {})
+    for round_ids in data.get("calendar", []):
+        for match_id in round_ids:
+            match = matches.get(match_id)
+            if not match or match.get("done") or match.get("omit"):
+                continue
+            slots = match.get("slots", [])
+            if len(slots) == 2 and all(v is not None and v != 0 for v in slots):
+                return match
+    return None
+
+def tournament_place(data, match_id, slot, value):
+    matches = data.get("matches", {})
+    match = matches.get(match_id)
+    if not match or match.get("done"):
+        return
+    match["slots"][slot] = value
+    tournament_auto_bye(data, match)
+
+def tournament_auto_bye(data, match):
+    if match.get("done") or any(v is None for v in match.get("slots", [])):
+        return
+    slots = match["slots"]
+    if 0 not in slots:
+        return
+    winner = slots[1] if slots[0] == 0 else slots[0]
+    tournament_close_match(data, match, winner, 0)
+
+def tournament_close_match(data, match, winner, loser):
+    if match.get("done"):
+        return
+    match["done"] = True
+    match["winner"] = winner
+    match["loser"] = loser
+    if match.get("bracket") == "F":
+        if match.get("id") == "FINAL":
+            if winner == match["slots"][0]:
+                data["matches"]["RESET"]["done"] = True
+                data["matches"]["RESET"]["omit"] = True
+                data["champion"] = winner
+            else:
+                reset = data["matches"]["RESET"]
+                reset["slots"] = list(match["slots"])
+        else:
+            data["champion"] = winner
+    else:
+        win_dest = match.get("winDest")
+        lose_dest = match.get("loseDest")
+        if win_dest:
+            tournament_place(data, win_dest["match"], win_dest["slot"], winner)
+        if lose_dest and loser not in (None, 0):
+            tournament_place(data, lose_dest["match"], lose_dest["slot"], loser)
+
+@app.get("/api/tournament/current")
+def get_current_tournament_match():
+    try:
+        started, data = load_tournament_state()
+        if not started or not data:
+            return jsonify({"started": False, "match": None, "error": "Todavía no hay una llave generada."})
+        match = tournament_next_match(data)
+        players = {str(p["id"]): p for p in data.get("players", [])}
+        if match:
+            slots = match.get("slots", [])
+            return jsonify({
+                "started": True, "match": match,
+                "robot1": players.get(str(slots[0]), {}).get("robot", ""),
+                "pilot1": players.get(str(slots[0]), {}).get("pilot", ""),
+                "robot2": players.get(str(slots[1]), {}).get("robot", ""),
+                "pilot2": players.get(str(slots[1]), {}).get("pilot", ""),
+                "players": data.get("players", [])
+            })
+        return jsonify({"started": True, "match": None, "champion": data.get("champion"),
+                        "players": data.get("players", [])})
+    except (OSError, sqlite3.Error, json.JSONDecodeError) as error:
+        return jsonify({"error": f"No se pudo leer la llave de competencia: {error}"}), 503
+
+@app.post("/api/tournament/record-battle")
+def record_tournament_battle():
+    payload = request.get_json(silent=True) or {}
+    winner_id = payload.get("winner_id")
+    match_id = payload.get("match_id")
+    try:
+        started, data = load_tournament_state()
+        if not started or not data:
+            return jsonify({"error": "No hay una competencia activa."}), 409
+        match = tournament_next_match(data)
+        if not match or match.get("id") != match_id:
+            return jsonify({"error": "El combate ya no corresponde al enfrentamiento actual. Actualiza la pantalla."}), 409
+        if winner_id not in match.get("slots", []):
+            return jsonify({"error": "El ganador debe ser uno de los dos robots del combate."}), 400
+        loser_id = match["slots"][1] if match["slots"][0] == winner_id else match["slots"][0]
+        wins = match.setdefault("seriesWins", {})
+        key = str(winner_id)
+        wins[key] = int(wins.get(key, 0)) + 1
+        match.setdefault("battles", []).append({
+            "winner": winner_id, "loser": loser_id,
+            "reason": str(payload.get("reason", ""))[:80],
+            "attacks1": max(0, int(payload.get("attacks1", 0))),
+            "attacks2": max(0, int(payload.get("attacks2", 0))),
+            "elapsed_seconds": max(0, float(payload.get("elapsed_seconds", 0)))
+        })
+        if wins[key] >= 2:
+            tournament_close_match(data, match, winner_id, loser_id)
+        save_tournament_state(data, started=not bool(data.get("champion")))
+        with lock:
+            state["winner"] = ""
+            state["reason"] = ""
+        return jsonify({"saved": True, "seriesWins": wins, "matchFinished": bool(match.get("done")),
+                        "state": data, "next": tournament_next_match(data)})
+    except (OSError, sqlite3.Error, json.JSONDecodeError, TypeError, ValueError, KeyError) as error:
+        return jsonify({"error": f"No se pudo guardar el resultado de la batalla: {error}"}), 400
+
 @app.get("/api/state")
 def get_state():
     with lock:
