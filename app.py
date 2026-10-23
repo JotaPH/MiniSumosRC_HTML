@@ -76,6 +76,12 @@ def competition_has_data(connection):
             count = connection.execute('SELECT COUNT(*) FROM "' + table + '"').fetchone()[0]
             if count:
                 return True
+    if table_exists(connection, "torneo_debug"):
+        row = connection.execute(
+            "SELECT iniciado, estado_json FROM torneo_debug WHERE id=1"
+        ).fetchone()
+        if row and (row["iniciado"] or row["estado_json"]):
+            return True
     return False
 
 def clear_competition_data(connection):
@@ -125,8 +131,21 @@ ROBOT_PAIRS = [
 
 def snapshot():
     data = dict(state)
-    if data["phase"] == "running" and data["started_at"] is not None:
-        data["elapsed_seconds"] = max(0, time.time() - data["started_at"])
+    if state["phase"] == "running" and state["started_at"] is not None:
+        elapsed = max(0, time.time() - state["started_at"])
+        state["elapsed_seconds"] = elapsed
+        if elapsed >= 120:
+            state["elapsed_seconds"] = 120
+            state["started_at"] = None
+            state["phase"] = "finished"
+            state["status"] = "BATALLA FINALIZADA · TIEMPO AGOTADO"
+            state["ui_action"] = "timeout"
+            state["ui_action_id"] += 1
+        elif elapsed >= 115 and state.get("ui_action") != "warning5":
+            state["ui_action"] = "warning5"
+            state["ui_action_id"] += 1
+        data = dict(state)
+        data["elapsed_seconds"] = min(120, elapsed)
     return data
 
 def stop_clock():
