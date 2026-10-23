@@ -315,8 +315,9 @@ def viewer():
 def payload_preview():
     try:
         return jsonify(build_payload())
-    except (OSError, sqlite3.Error, ValueError, TypeError, KeyError) as error:
-        return jsonify({"error": str(error)}), 503
+    except Exception as error:
+        app.logger.exception("No se pudo construir la vista previa del JSON")
+        return jsonify({"error": f"{type(error).__name__}: {error}"}), 503
 
 
 @app.post("/api/send")
@@ -330,10 +331,16 @@ def send_payload():
             method="POST"
         )
         with urllib.request.urlopen(req, timeout=4) as response:
-            received = json.loads(response.read().decode("utf-8"))
+            response_body = response.read().decode("utf-8")
+            received = json.loads(response_body)
         return jsonify({"sent": True, "receiver": received, "payload": payload})
-    except (OSError, urllib.error.URLError, sqlite3.Error, ValueError, TypeError, KeyError, json.JSONDecodeError) as error:
-        return jsonify({"sent": False, "error": str(error)}), 503
+    except urllib.error.HTTPError as error:
+        detail = error.read().decode("utf-8", errors="replace")[:1000]
+        app.logger.exception("El receptor rechazó el POST")
+        return jsonify({"sent": False, "error": f"El receptor respondió HTTP {error.code}: {detail}"}), 502
+    except Exception as error:
+        app.logger.exception("Falló el envío del JSON")
+        return jsonify({"sent": False, "error": f"{type(error).__name__}: {error}"}), 503
 
 
 @app.post("/api/receive")
