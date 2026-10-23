@@ -3,7 +3,6 @@ from pathlib import Path
 from threading import Lock, Thread
 import json
 import random
-import combates as tournament_engine
 import os
 import sqlite3
 import subprocess
